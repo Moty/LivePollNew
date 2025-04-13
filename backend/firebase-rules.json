@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "presentations": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$presentationId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (resource.data.createdBy == auth.uid || !resource.data.exists())",
+        "activities": {
+          ".read": "auth != null",
+          ".write": "auth != null && (root.child('presentations/' + $presentationId + '/createdBy').val() == auth.uid)"
+        }
+      }
+    }
+  }
+} 

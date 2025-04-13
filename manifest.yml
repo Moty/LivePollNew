@@ -1,0 +1,15 @@
+---
+applications:
+- name: livepoll-app
+  memory: 512M
+  instances: 1
+  buildpacks:
+    - nodejs_buildpack
+  command: node backend/src/server.js
+  path: .
+  env:
+    NODE_ENV: production
+  services:
+    - livepoll-db  # PostgreSQL service instance name (create this in SAP BTP)
+  routes:
+    - route: livepoll-app.cfapps.eu10.hana.ondemand.com  # Update with your SAP BTP region

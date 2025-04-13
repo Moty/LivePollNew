@@ -1,0 +1,93 @@
+[
+  {
+    "_id": "1",
+    "title": "Introduction to Web Development",
+    "description": "Learn the basics of web development",
+    "createdAt": "2025-03-15T05:38:29.320Z",
+    "updatedAt": "2025-03-15T05:38:29.321Z",
+    "activities": [
+      {
+        "_id": "poll_1",
+        "type": "poll",
+        "title": "Programming Experience",
+        "question": "How much programming experience do you have?",
+        "options": [
+          "None",
+          "Beginner",
+          "Intermediate",
+          "Advanced"
+        ],
+        "responses": []
+      },
+      {
+        "_id": "quiz_1",
+        "type": "quiz",
+        "title": "HTML Basics Quiz",
+        "question": "Test your HTML knowledge",
+        "questions": [
+          {
+            "text": "What does HTML stand for?",
+            "options": [
+              "Hyper Text Markup Language",
+              "High Tech Modern Language",
+              "Hyper Transfer Markup Language",
+              "Home Tool Markup Language"
+            ],
+            "correctIndex": 0
+          }
+        ],
+        "responses": []
+      },
+      {
+        "_id": "wordcloud_1",
+        "type": "wordcloud",
+        "title": "Web Development Concepts",
+        "question": "What words come to mind when you think of web development?",
+        "maxSubmissions": 3,
+        "responses": []
+      }
+    ]
+  },
+  {
+    "_id": "2",
+    "title": "JavaScript Fundamentals",
+    "description": "Master the basics of JavaScript",
+    "createdAt": "2025-03-15T05:38:29.321Z",
+    "updatedAt": "2025-03-15T05:38:29.321Z",
+    "activities": [
+      {
+        "_id": "poll_2",
+        "type": "poll",
+        "title": "JavaScript Framework Experience",
+        "question": "Which JavaScript framework do you use most?",
+        "options": [
+          "React",
+          "Vue",
+          "Angular",
+          "Svelte",
+          "None"
+        ],
+        "responses": []
+      },
+      {
+        "_id": "quiz_2",
+        "type": "quiz",
+        "title": "JavaScript Basics",
+        "question": "Test your JavaScript knowledge",
+        "questions": [
+          {
+            "text": "What is the correct way to declare a variable in JavaScript?",
+            "options": [
+              "var x = 5;",
+              "variable x = 5;",
+              "v x = 5;",
+              "x := 5;"
+            ],
+            "correctIndex": 0
+          }
+        ],
+        "responses": []
+      }
+    ]
+  }
+]
