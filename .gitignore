@@ -11,6 +11,7 @@ jspm_packages/
 .env.test.local
 .env.production.local
 
+
 # Logs
 logs
 *.log
@@ -45,3 +46,6 @@ tmp/
 
 # Project specific
 backend/.env
+backend/firebase*.json
+backend/livepoll*.json
+
