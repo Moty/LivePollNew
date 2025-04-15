@@ -1088,12 +1088,31 @@ const PresentationView = () => {
             showResults={true}
           />;
       case 'wordcloud':
+          // Process word cloud data - count word frequencies
+          const wordFrequency = {};
+          safeActivity.responses?.forEach(resp => {
+            // Handle both string responses and object responses with 'word' property
+            const word = typeof resp === 'string' ? resp : (resp?.word || '');
+            if (word && typeof word === 'string') {
+              const cleanWord = word.trim().toLowerCase();
+              if (cleanWord) {
+                wordFrequency[cleanWord] = (wordFrequency[cleanWord] || 0) + 1;
+              }
+            }
+          });
+          
+          // Convert to the format expected by the WordCloud component: [{text, value}]
+          const formattedWords = Object.keys(wordFrequency).map(word => ({
+            text: word,
+            value: wordFrequency[word]
+          }));
+          
           return <WordCloud 
             isPresenter={true}
             id={safeActivity._id}
             title={safeActivity.title || "Word Cloud"}
-            question={safeActivity.question || safeActivity.title || "Word Cloud Question"}
-            words={safeActivity.responses?.map(resp => typeof resp === 'string' ? resp : JSON.stringify(resp)).filter(Boolean) || []}
+            description={safeActivity.description || safeActivity.question || "Submit words that come to mind"}
+            words={formattedWords}
           />;
       case 'qa':
           return <QA 

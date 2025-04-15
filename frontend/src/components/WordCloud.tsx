@@ -44,6 +44,10 @@ const WordCloud: React.FC<WordCloudProps> = ({
         callbacks={callbacks}
         size={[typeof width === 'number' ? width : 600, typeof height === 'number' ? height : 400]}
       />
+      {/* Presenter counter for total words submitted */}
+      <div style={{ marginTop: 16, textAlign: 'center', color: '#888', fontSize: 14 }}>
+        {words.reduce((sum, w) => sum + (w.value || 0), 0)} words submitted by participants
+      </div>
     </div>
   );
 };

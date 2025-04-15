@@ -351,7 +351,8 @@ const WordCloud = ({
       {isPresenter && (
         <PresenterControls>
           <ControlsInfo>
-            {words.length} words submitted by participants
+            {/* Show total number of words submitted (sum of all values) */}
+            {words.reduce((sum, w) => sum + (w.value || 0), 0)} words submitted by participants
           </ControlsInfo>
           <ActionButton variant="danger" onClick={handleReset}>
             Reset Word Cloud
