@@ -3,6 +3,15 @@ import styled from 'styled-components';
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
 
+import WordCloudColorSchemeSelector, { WORD_CLOUD_COLOR_SCHEMES } from './WordCloudColorSchemeSelector';
+import WordCloudShapeSelector, { WORD_CLOUD_SHAPES } from './WordCloudShapeSelector';
+import { 
+  isAppropriateWordForSubmission,
+  getInappropriateWordMessage,
+  filterInappropriateWords 
+} from '../../utils/wordCloudFilters';
+import SettingsIcon from '../icons/SettingsIcon';
+
 const WordCloudContainer = styled.div`
   background-color: ${({ theme }) => theme.colors.background.primary};
   border-radius: ${({ theme }) => theme.borderRadius.default};
@@ -152,7 +161,7 @@ const ActionButton = styled.button`
   color: ${({ theme }) => theme.colors.text.light};
   border: none;
   border-radius: ${({ theme }) => theme.borderRadius.default};
-  font-weight: 600;
+  font-size: ${({ theme }) => theme.fontSizes.small};
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
   
@@ -162,6 +171,92 @@ const ActionButton = styled.button`
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: ${({ theme }) => theme.colors.error};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  text-align: center;
+  margin-top: ${({ theme }) => theme.spacing.sm};
+`;
+
+const VisualizationSettings = styled.div`
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  padding-top: ${({ theme }) => theme.spacing.md};
+  margin-top: ${({ theme }) => theme.spacing.md};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  padding: ${({ theme }) => theme.spacing.md};
+`;
+
+const VisualizationSettingsTitle = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  font-size: ${({ theme }) => theme.fontSizes.body};
+  
+  svg {
+    margin-right: ${({ theme }) => theme.spacing.sm};
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+`;
+
+const VisualizationSettingsToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  padding: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.sm};
+  cursor: pointer;
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.secondary + 'DD'};
+  }
+  
+  svg {
+    margin-right: ${({ theme }) => theme.spacing.sm};
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+`;
+
+const FormLabel = styled.label`
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  margin-bottom: 4px;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const FormCheckboxContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+`;
+
+const FormCheckbox = styled.input`
+  margin-right: ${({ theme }) => theme.spacing.sm};
+`;
+
+const FilterSettingsContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin: ${({ theme }) => theme.spacing.md} 0;
+`;
+
 /**
  * WordCloud Component
  * @param {Object} props
@@ -169,10 +264,12 @@ const ActionButton = styled.button`
  * @param {string} props.title - WordCloud title 
  * @param {string} props.description - WordCloud description
  * @param {boolean} props.isPresenter - Whether current user is presenter
- * @param {Array} props.words - Array of word objects {text, value}
- * @param {number} props.maxSubmissions - Max submissions per participant
- * @param {function} props.onSubmit - Function called when word is submitted
- * @param {function} props.onReset - Function called when presenter resets the cloud
+ * @param {Array} props.words - Array of word objects with text and value properties
+ * @param {number} props.maxSubmissions - Maximum number of words a user can submit
+ * @param {Object} props.visualSettings - Visual settings for the word cloud
+ * @param {function} props.onSubmit - Function called when a word is submitted
+ * @param {function} props.onReset - Function called when the word cloud is reset
+ * @param {function} props.onSettingsChange - Function called when visual settings change
  */
 const WordCloud = ({
   id,
@@ -181,48 +278,96 @@ const WordCloud = ({
   isPresenter = false,
   words = [],
   maxSubmissions = 3,
+  visualSettings: initialVisualSettings = {
+    colorScheme: 'default',
+    shape: 'rectangle',
+    filterInappropriateWords: true,
+    filterFillerWords: false,
+    customFilterList: []
+  },
   onSubmit,
-  onReset
+  onReset,
+  onSettingsChange
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [userSubmissions, setUserSubmissions] = useState(0);
   const [submissionEnabled, setSubmissionEnabled] = useState(true);
-  const isMobile = window.innerWidth <= 576;
-  const svgRef = useRef(null);
-  const containerRef = useRef(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [visualSettings, setVisualSettings] = useState(initialVisualSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customFilterInput, setCustomFilterInput] = useState('');
   
-  // Generate the word cloud visualization
+  const containerRef = useRef(null);
+  const svgRef = useRef(null);
+  
+  // Check if the device is mobile
   useEffect(() => {
-    if (words.length === 0 || !svgRef.current || !containerRef.current) return;
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
     
-    // Clear previous visualization
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+  
+  // Apply filtering to words based on settings
+  const filteredWords = visualSettings.filterInappropriateWords 
+    ? filterInappropriateWords(
+        words, 
+        visualSettings.customFilterList, 
+        true, 
+        visualSettings.filterFillerWords
+      )
+    : words;
+  
+  // Draw the word cloud whenever the container size, words, or visual settings change
+  useEffect(() => {
+    if (!containerRef.current || filteredWords.length === 0) return;
+    
+    // Clear previous word cloud
     d3.select(svgRef.current).selectAll("*").remove();
     
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
     
-    // Create color scale
-    const color = d3.scaleOrdinal()
-      .domain([0, words.length])
-      .range([
-        "#3498db", "#2ecc71", "#9b59b6", "#e67e22", "#f1c40f", 
-        "#1abc9c", "#e74c3c", "#34495e", "#16a085", "#d35400"
-      ]);
+    // Get colors based on selected color scheme
+    const colorScheme = WORD_CLOUD_COLOR_SCHEMES[visualSettings.colorScheme] || WORD_CLOUD_COLOR_SCHEMES.default;
+    const colors = colorScheme.colors;
+    const color = d3.scaleOrdinal(colors);
     
-    // Configure the layout
+    // Find the word with maximum frequency to normalize sizes
+    const maxSize = Math.max(...filteredWords.map(w => w.value));
+    const minSize = Math.min(...filteredWords.map(w => w.value));
+    const sizeScale = d3.scaleLinear()
+      .domain([minSize, maxSize])
+      .range([15, 60]);
+    
+    // Create cloud layout
     const layout = cloud()
       .size([width, height])
-      .words(words)
+      .words(filteredWords.map(w => ({
+        text: w.text,
+        size: sizeScale(w.value)
+      })))
       .padding(5)
-      .rotate(() => Math.random() > 0.5 ? 0 : 90)
-      .font("Impact")
-      .fontSize(d => Math.sqrt(d.value) * 5)
+      .rotate(() => 0)
+      .fontSize(d => d.size)
       .on("end", draw);
     
-    // Start the layout
+    // Apply shape constraints if selected
+    const shape = WORD_CLOUD_SHAPES[visualSettings.shape];
+    if (shape && shape.getPolygon) {
+      const polygon = shape.getPolygon(Math.min(width, height));
+      layout.polygon(polygon);
+    }
+    
     layout.start();
     
-    // Draw the word cloud
     function draw(words) {
       d3.select(svgRef.current)
         .attr("width", width)
@@ -235,7 +380,7 @@ const WordCloud = ({
         .append("text")
         .style("font-size", d => `${d.size}px`)
         .style("font-family", "Impact")
-        .style("fill", (d, i) => color(i))
+        .style("fill", (d, i) => color(i % colors.length))
         .attr("text-anchor", "middle")
         .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
         .text(d => d.text);
@@ -255,26 +400,80 @@ const WordCloud = ({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [words]);
+  }, [filteredWords, visualSettings]);
   
   // Check if user can submit more words
   useEffect(() => {
     setSubmissionEnabled(userSubmissions < maxSubmissions);
   }, [userSubmissions, maxSubmissions]);
   
+  // Handle visual settings change
+  const handleVisualSettingChange = (key, value) => {
+    const newSettings = {
+      ...visualSettings,
+      [key]: value
+    };
+    
+    setVisualSettings(newSettings);
+    
+    if (onSettingsChange) {
+      onSettingsChange(newSettings);
+    }
+  };
+  
+  // Add custom filter word
+  const handleAddCustomFilter = () => {
+    if (customFilterInput.trim()) {
+      const newFilterList = [...visualSettings.customFilterList, customFilterInput.trim()];
+      handleVisualSettingChange('customFilterList', newFilterList);
+      setCustomFilterInput('');
+    }
+  };
+  
+  // Remove custom filter word
+  const handleRemoveCustomFilter = (word) => {
+    const newFilterList = visualSettings.customFilterList.filter(w => w !== word);
+    handleVisualSettingChange('customFilterList', newFilterList);
+  };
+  
   // Handle word submission
   const handleSubmit = (e) => {
     e.preventDefault();
     const word = inputValue.trim();
     
-    if (word && submissionEnabled) {
-      if (onSubmit) {
-        onSubmit(id, word);
-      }
-      
-      setUserSubmissions(prev => prev + 1);
-      setInputValue('');
+    if (!word) {
+      setErrorMessage('Please enter a word.');
+      return;
     }
+    
+    if (word.length > 20) {
+      setErrorMessage('Word must be 20 characters or less.');
+      return;
+    }
+    
+    if (!submissionEnabled) {
+      setErrorMessage(`You've reached the maximum of ${maxSubmissions} submissions.`);
+      return;
+    }
+    
+    // Check for inappropriate words if filtering is enabled
+    if (visualSettings.filterInappropriateWords && !isAppropriateWordForSubmission(
+      word,
+      visualSettings.customFilterList,
+      true
+    )) {
+      setErrorMessage(getInappropriateWordMessage(word));
+      return;
+    }
+    
+    setErrorMessage('');
+    
+    if (onSubmit) {
+      onSubmit(id, word);
+    }
+    
+    setUserSubmissions(prev => prev + 1);
+    setInputValue('');
   };
   
   // Handle reset (presenter only)
@@ -285,7 +484,7 @@ const WordCloud = ({
   };
   
   // Get top 10 words
-  const topWords = [...words]
+  const topWords = [...filteredWords]
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
   
@@ -297,7 +496,7 @@ const WordCloud = ({
       </WordCloudHeader>
       
       <VisualizationContainer ref={containerRef}>
-        {words.length > 0 ? (
+        {filteredWords.length > 0 ? (
           <svg ref={svgRef} width="100%" height="100%" />
         ) : (
           <NoSubmissionsMessage>
@@ -329,13 +528,17 @@ const WordCloud = ({
             </InputContainer>
           </form>
           
+          {errorMessage && (
+            <ErrorMessage>{errorMessage}</ErrorMessage>
+          )}
+          
           <InfoText>
             {userSubmissions} of {maxSubmissions} submissions made
           </InfoText>
         </>
       )}
       
-      {words.length > 0 && (
+      {filteredWords.length > 0 && (
         <div>
           <InfoText>Top Words</InfoText>
           <TopWordsContainer>
@@ -349,15 +552,101 @@ const WordCloud = ({
       )}
       
       {isPresenter && (
-        <PresenterControls>
-          <ControlsInfo>
-            {/* Show total number of words submitted (sum of all values) */}
-            {words.reduce((sum, w) => sum + (w.value || 0), 0)} words submitted by participants
-          </ControlsInfo>
-          <ActionButton variant="danger" onClick={handleReset}>
-            Reset Word Cloud
-          </ActionButton>
-        </PresenterControls>
+        <>
+          <VisualizationSettingsToggle
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            <SettingsIcon />
+            {showSettings ? 'Hide Visualization Settings' : 'Show Visualization Settings'}
+          </VisualizationSettingsToggle>
+          
+          {showSettings && (
+            <VisualizationSettings>
+              <VisualizationSettingsTitle>
+                <SettingsIcon />
+                Word Cloud Settings
+              </VisualizationSettingsTitle>
+              
+              <WordCloudColorSchemeSelector
+                selectedScheme={visualSettings.colorScheme}
+                onChange={(scheme) => handleVisualSettingChange('colorScheme', scheme)}
+              />
+              
+              <WordCloudShapeSelector
+                selectedShape={visualSettings.shape}
+                onChange={(shape) => handleVisualSettingChange('shape', shape)}
+              />
+              
+              <FilterSettingsContainer>
+                <FormGroup>
+                  <FormLabel>Word Filtering</FormLabel>
+                  <FormCheckboxContainer>
+                    <FormCheckbox
+                      type="checkbox"
+                      id="filter-inappropriate"
+                      checked={visualSettings.filterInappropriateWords}
+                      onChange={(e) => handleVisualSettingChange('filterInappropriateWords', e.target.checked)}
+                    />
+                    <FormLabel htmlFor="filter-inappropriate">Filter inappropriate words</FormLabel>
+                  </FormCheckboxContainer>
+                  <FormCheckboxContainer>
+                    <FormCheckbox
+                      type="checkbox"
+                      id="filter-filler"
+                      checked={visualSettings.filterFillerWords}
+                      onChange={(e) => handleVisualSettingChange('filterFillerWords', e.target.checked)}
+                    />
+                    <FormLabel htmlFor="filter-filler">Filter common filler words</FormLabel>
+                  </FormCheckboxContainer>
+                </FormGroup>
+                
+                {visualSettings.filterInappropriateWords && (
+                  <FormGroup>
+                    <FormLabel>Custom Filter Words</FormLabel>
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                      <WordInput
+                        type="text"
+                        placeholder="Add word to filter..."
+                        value={customFilterInput}
+                        onChange={(e) => setCustomFilterInput(e.target.value)}
+                        style={{ minWidth: '150px' }}
+                      />
+                      <ActionButton
+                        type="button"
+                        onClick={handleAddCustomFilter}
+                        disabled={!customFilterInput.trim()}
+                      >
+                        Add
+                      </ActionButton>
+                    </div>
+                    {visualSettings.customFilterList.length > 0 && (
+                      <TopWordsContainer>
+                        {visualSettings.customFilterList.map((word, index) => (
+                          <WordChip key={index} onClick={() => handleRemoveCustomFilter(word)}>
+                            {word} ✕
+                          </WordChip>
+                        ))}
+                      </TopWordsContainer>
+                    )}
+                  </FormGroup>
+                )}
+              </FilterSettingsContainer>
+            </VisualizationSettings>
+          )}
+          
+          <PresenterControls>
+            <ControlsInfo>
+              {/* Show total number of words submitted (sum of all values) */}
+              {words.reduce((sum, w) => sum + (w.value || 0), 0)} words submitted by participants
+              {filteredWords.length < words.length && (
+                <div>({words.length - filteredWords.length} words filtered)</div>
+              )}
+            </ControlsInfo>
+            <ActionButton variant="danger" onClick={handleReset}>
+              Reset Word Cloud
+            </ActionButton>
+          </PresenterControls>
+        </>
       )}
     </WordCloudContainer>
   );

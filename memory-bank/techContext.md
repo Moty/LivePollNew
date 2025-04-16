@@ -13,6 +13,8 @@
 | Chart.js | Data visualization | ^4.0.0 |
 | React QR Code | QR code generation | ^3.1.0 |
 | Axios | HTTP client | ^1.1.3 |
+| d3 | Data visualization | ^7.4.4 |
+| d3-cloud | Word cloud generation | ^2.0.0 |
 
 ### Backend Technologies
 
@@ -216,3 +218,20 @@
 - Role-based access control
 - Resource ownership validation
 - API endpoint protection 
+
+## Enhanced Activity Features
+
+### Poll Visualizations
+- Using Chart.js for responsive and customizable visualizations
+- Supporting various chart types (bar, pie, doughnut, line, horizontal bar)
+- Providing animation customization for charts with preview capabilities
+
+### Quiz Timer
+- Implementing a countdown timer with requestAnimationFrame for smooth animations
+- Using a custom CountdownTimer component with configurable settings
+- Providing auto-advance functionality when time expires with configurable settings
+
+### WordCloud Enhancements
+- Using d3-cloud for word cloud generation with custom enhancements for shapes and color schemes
+- Providing customizable options for word cloud appearance and behavior
+- Integrating word cloud with other activity features for enhanced user experience

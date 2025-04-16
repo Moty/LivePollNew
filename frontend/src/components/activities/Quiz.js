@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import CountdownTimer from './CountdownTimer';
+import SettingsIcon from '../icons/SettingsIcon';
 
 const QuizContainer = styled.div`
   background-color: ${({ theme }) => theme.colors.background.primary};
@@ -124,7 +126,7 @@ const FeedbackMessage = styled.div`
   padding: ${({ theme }) => theme.spacing.md};
   border-radius: ${({ theme }) => theme.borderRadius.default};
   background-color: ${({ theme, isCorrect }) => 
-    isCorrect ? 'rgba(111, 207, 151, 0.1)' : 'rgba(235, 87, 87, 0.1)'};
+    isCorrect ? theme.colors.accent + '20' : theme.colors.error + '20'};
   color: ${({ theme, isCorrect }) => 
     isCorrect ? theme.colors.accent : theme.colors.error};
 `;
@@ -144,7 +146,7 @@ const NavigationButton = styled.button`
     isPrimary ? 'none' : `1px solid ${theme.colors.border}`};
   border-radius: ${({ theme }) => theme.borderRadius.default};
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.lg}`};
-  font-weight: 600;
+  font-size: ${({ theme }) => theme.fontSizes.body};
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
   
@@ -154,23 +156,17 @@ const NavigationButton = styled.button`
   }
   
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.7;
     cursor: not-allowed;
   }
 `;
 
-const ScoreContainer = styled.div`
+const ResultsContainer = styled.div`
   text-align: center;
-  padding: ${({ theme }) => theme.spacing.xl} 0;
+  padding: ${({ theme }) => theme.spacing.lg};
 `;
 
-const ScoreTitle = styled.h2`
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const ScoreValue = styled.div`
-  font-size: 3rem;
-  font-weight: 700;
+const ResultsTitle = styled.h3`
   color: ${({ theme }) => theme.colors.primary};
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
@@ -187,23 +183,32 @@ const ScoreDetails = styled.div`
   background-color: ${({ theme }) => theme.colors.background.secondary};
   padding: ${({ theme }) => theme.spacing.lg};
   border-radius: ${({ theme }) => theme.borderRadius.default};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
-const ScoreDetail = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+const DetailRow = styled.div`
   display: flex;
   justify-content: space-between;
-  gap: ${({ theme }) => theme.spacing.xl};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  
+  &:last-child {
+    margin-bottom: 0;
+    border-top: 1px solid ${({ theme }) => theme.colors.border};
+    padding-top: ${({ theme }) => theme.spacing.sm};
+    font-weight: 600;
+  }
 `;
 
 const LeaderboardTitle = styled.h3`
-  margin: ${({ theme }) => `${theme.spacing.xl} 0 ${theme.spacing.md}`};
-  text-align: center;
+  margin-top: ${({ theme }) => theme.spacing.xl};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  color: ${({ theme }) => theme.colors.primary};
 `;
 
 const LeaderboardTable = styled.table`
   width: 100%;
   border-collapse: collapse;
+  text-align: left;
 `;
 
 const LeaderboardHeader = styled.thead`
@@ -212,7 +217,6 @@ const LeaderboardHeader = styled.thead`
 
 const LeaderboardHeaderCell = styled.th`
   padding: ${({ theme }) => theme.spacing.sm};
-  text-align: left;
   border-bottom: 2px solid ${({ theme }) => theme.colors.border};
 `;
 
@@ -235,20 +239,119 @@ const LeaderboardCell = styled.td`
   font-weight: ${({ highlight }) => highlight ? 600 : 400};
 `;
 
+const TimerSettingsContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  padding: ${({ theme }) => theme.spacing.md};
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+`;
+
+const TimerSettingsTitle = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  
+  svg {
+    margin-right: ${({ theme }) => theme.spacing.sm};
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+`;
+
+const TimerSettingsToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  padding: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  cursor: pointer;
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.secondary + 'DD'};
+  }
+  
+  svg {
+    margin-right: ${({ theme }) => theme.spacing.sm};
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+`;
+
+const FormLabel = styled.label`
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  margin-bottom: 4px;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const FormInput = styled.input`
+  padding: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const FormSelect = styled.select`
+  padding: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`;
+
+const FormCheckboxContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+`;
+
+const FormCheckbox = styled.input`
+  margin-right: ${({ theme }) => theme.spacing.sm};
+`;
+
 /**
  * Quiz Component
  * @param {Object} props
  * @param {string} props.id - Quiz ID
  * @param {string} props.title - Quiz title
  * @param {string} props.description - Quiz description
+ * @param {Array} props.questions - Array of question objects
  * @param {boolean} props.isPresenter - Whether current user is presenter
- * @param {Array} props.questions - Quiz questions
- * @param {boolean} props.showResults - Whether to show results immediately after answering
+ * @param {boolean} props.showResults - Whether to show results immediately
  * @param {boolean} props.showLeaderboard - Whether to show leaderboard
- * @param {Array} props.leaderboard - Leaderboard data
- * @param {Object} props.user - Current user information
- * @param {function} props.onSubmit - Function called when user submits an answer
- * @param {function} props.onComplete - Function called when user completes the quiz
+ * @param {Array} props.leaderboard - Array of leaderboard entries
+ * @param {Object} props.user - Current user object
+ * @param {Object} props.timerSettings - Timer settings object
+ * @param {function} props.onSubmit - Function called when an answer is submitted
+ * @param {function} props.onComplete - Function called when quiz is completed
  */
 const Quiz = ({
   id,
@@ -260,188 +363,334 @@ const Quiz = ({
   showLeaderboard = true,
   leaderboard = [],
   user = { id: 'user1', name: 'Anonymous' },
+  timerSettings: initialTimerSettings = {
+    enabled: false,
+    duration: 30,
+    autoAdvance: true,
+    timeBasedScoring: true
+  },
   onSubmit,
-  onComplete
+  onComplete,
+  onTimerSettingsChange
 }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [revealedAnswers, setRevealedAnswers] = useState({});
+  const [userAnswers, setUserAnswers] = useState(Array(questions.length).fill(undefined));
+  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [score, setScore] = useState({
-    correct: 0,
-    incorrect: 0,
-    unanswered: 0,
-    total: questions.length,
-    percentage: 0
-  });
+  const [score, setScore] = useState(0);
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(0);
+  const [timerSettings, setTimerSettings] = useState(initialTimerSettings);
+  const [showTimerSettings, setShowTimerSettings] = useState(false);
   
-  // Update score when quiz is completed
+  // Reset state when questions change
   useEffect(() => {
-    if (quizCompleted) {
-      const results = {
-        correct: 0,
-        incorrect: 0,
-        unanswered: 0,
-        total: questions.length
-      };
-      
-      questions.forEach((question, index) => {
-        if (selectedAnswers[index] === undefined) {
-          results.unanswered++;
-        } else if (selectedAnswers[index] === question.correctOptionIndex) {
-          results.correct++;
-        } else {
-          results.incorrect++;
-        }
-      });
-      
-      results.percentage = Math.round((results.correct / results.total) * 100);
-      setScore(results);
-      
-      if (onComplete) {
-        onComplete(id, {
-          userId: user.id,
-          userName: user.name,
-          score: results.percentage,
-          correctAnswers: results.correct,
-          totalQuestions: results.total
-        });
-      }
+    setCurrentQuestion(0);
+    setUserAnswers(Array(questions.length).fill(undefined));
+    setIsAnswerRevealed(false);
+    setQuizCompleted(false);
+    setScore(0);
+  }, [questions]);
+  
+  // Reset timer when current question changes
+  useEffect(() => {
+    if (timerSettings.enabled) {
+      setQuestionTimeLeft(timerSettings.duration);
     }
-  }, [quizCompleted, questions, selectedAnswers, id, user, onComplete]);
+  }, [currentQuestion, timerSettings]);
+  
+  const selectedAnswer = userAnswers[currentQuestion];
+  const currentQuestionData = questions[currentQuestion];
+  const correctAnswerIndex = currentQuestionData?.correctAnswer;
+  const isAnswerCorrect = selectedAnswer === correctAnswerIndex;
+  
+  const totalCorrect = userAnswers.reduce((count, answer, index) => {
+    const question = questions[index];
+    return answer === question?.correctAnswer ? count + 1 : count;
+  }, 0);
+  
+  const progressPercentage = Math.round((currentQuestion / questions.length) * 100);
   
   // Handle option selection
   const handleOptionSelect = (questionIndex, optionIndex) => {
-    // Don't allow changing answers after they're revealed
-    if (revealedAnswers[questionIndex]) {
-      return;
-    }
+    if (questionIndex !== currentQuestion) return;
+    if (isAnswerRevealed) return;
     
-    setSelectedAnswers(prev => ({
-      ...prev,
-      [questionIndex]: optionIndex
-    }));
+    const newAnswers = [...userAnswers];
+    newAnswers[questionIndex] = optionIndex;
+    setUserAnswers(newAnswers);
     
     if (showResults) {
-      setRevealedAnswers(prev => ({
-        ...prev,
-        [questionIndex]: true
-      }));
+      setIsAnswerRevealed(true);
       
-      // Call onSubmit with the selected answer
+      // If timer is enabled and time-based scoring is enabled, calculate score based on time left
+      const timeBonus = timerSettings.enabled && timerSettings.timeBasedScoring 
+        ? Math.round((questionTimeLeft / timerSettings.duration) * 50) // Up to 50% bonus for quick answers
+        : 0;
+      
       if (onSubmit) {
-        onSubmit(id, {
-          userId: user.id,
+        onSubmit({
+          quizId: id,
           questionIndex,
-          selectedOptionIndex: optionIndex,
-          isCorrect: questions[questionIndex].correctOptionIndex === optionIndex
+          selectedOption: optionIndex,
+          isCorrect: optionIndex === correctAnswerIndex,
+          timeBonus
         });
       }
+    } else if (timerSettings.enabled && timerSettings.autoAdvance) {
+      // If auto-advance is enabled, move to next question after selection
+      setTimeout(() => {
+        handleNext();
+      }, 250); // Small delay for better UX
     }
   };
   
   // Navigation handlers
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      // If we're using immediate feedback, check if all questions are answered
+      // Move to next question
       if (showResults) {
-        const answeredCount = Object.keys(selectedAnswers).length;
-        if (answeredCount < questions.length) {
-          // Find first unanswered question
-          for (let i = 0; i < questions.length; i++) {
-            if (selectedAnswers[i] === undefined) {
-              setCurrentQuestion(i);
-              return;
-            }
-          }
-        }
+        setIsAnswerRevealed(false);
       }
-      
-      // Complete the quiz
-      setQuizCompleted(true);
-      
-      // If we're not showing immediate results, submit all answers at once
-      if (!showResults && onSubmit) {
-        questions.forEach((question, questionIndex) => {
-          const answer = selectedAnswers[questionIndex];
-          if (answer !== undefined) {
-            onSubmit(id, {
-              userId: user.id,
-              questionIndex,
-              selectedOptionIndex: answer,
-              isCorrect: question.correctOptionIndex === answer
-            });
-          }
-        });
+      setCurrentQuestion(prevQuestion => prevQuestion + 1);
+    } else {
+      // Quiz completed
+      if (!quizCompleted) {
+        const finalScore = Math.round((totalCorrect / questions.length) * 100);
+        setScore(finalScore);
+        setQuizCompleted(true);
+        
+        if (onComplete) {
+          onComplete({
+            quizId: id,
+            userId: user.id,
+            userName: user.name,
+            score: finalScore,
+            answers: userAnswers
+          });
+        }
       }
     }
   };
   
   const handlePrevious = () => {
     if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
+      setCurrentQuestion(prevQuestion => prevQuestion - 1);
+      if (showResults) {
+        setIsAnswerRevealed(userAnswers[currentQuestion - 1] !== undefined);
+      }
     }
   };
   
   const handleRestart = () => {
     setCurrentQuestion(0);
-    setSelectedAnswers({});
-    setRevealedAnswers({});
+    setUserAnswers(Array(questions.length).fill(undefined));
+    setIsAnswerRevealed(false);
     setQuizCompleted(false);
+    setScore(0);
   };
   
-  // Check if the current user is in the leaderboard
-  const isUserInLeaderboard = leaderboard.some(entry => entry.userId === user.id);
-  
-  // Calculate progress
-  const progress = (Object.keys(selectedAnswers).length / questions.length) * 100;
-  
-  // Generate feedback message
-  const getFeedbackMessage = (questionIndex, isCorrect) => {
-    if (isCorrect) {
-      return "Correct! Well done!";
-    } else {
-      const correctOptionLabel = String.fromCharCode(65 + questions[questionIndex].correctOptionIndex);
-      return `Incorrect. The correct answer is ${correctOptionLabel}.`;
+  // Handle timer completion
+  const handleTimerComplete = () => {
+    if (timerSettings.autoAdvance) {
+      // If no answer selected, mark as wrong and move on
+      if (selectedAnswer === undefined) {
+        const newAnswers = [...userAnswers];
+        newAnswers[currentQuestion] = -1; // -1 indicates time expired without answer
+        setUserAnswers(newAnswers);
+        
+        if (onSubmit) {
+          onSubmit({
+            quizId: id,
+            questionIndex: currentQuestion,
+            selectedOption: -1,
+            isCorrect: false,
+            timeBonus: 0
+          });
+        }
+      }
+      
+      // Reveal answer briefly before advancing
+      if (showResults) {
+        setIsAnswerRevealed(true);
+        setTimeout(() => {
+          handleNext();
+        }, 1500); // Show correct answer for 1.5 seconds before advancing
+      } else {
+        handleNext();
+      }
     }
   };
   
-  // Render quiz results
-  if (quizCompleted) {
+  // Handle timer settings change
+  const handleTimerSettingChange = (key, value) => {
+    const newSettings = { 
+      ...timerSettings,
+      [key]: typeof value === 'string' && !isNaN(parseInt(value)) ? parseInt(value) : value
+    };
+    
+    setTimerSettings(newSettings);
+    
+    if (onTimerSettingsChange) {
+      onTimerSettingsChange(newSettings);
+    }
+  };
+  
+  // Generate feedback message
+  const getFeedbackMessage = (questionIndex, isCorrect) => {
+    const question = questions[questionIndex];
+    
+    if (isCorrect) {
+      return question?.correctFeedback || "Correct!";
+    } else {
+      const correctOption = question?.options[question.correctAnswer];
+      return question?.incorrectFeedback || `Incorrect. The correct answer is: ${correctOption}`;
+    }
+  };
+  
+  if (isPresenter) {
     return (
       <QuizContainer>
-        <ScoreContainer>
-          <ScoreTitle>Quiz Results</ScoreTitle>
-          <ScoreValue>{score.percentage}%</ScoreValue>
-          <ScoreMessage>
-            {score.percentage === 100 && "Perfect score! Excellent job!"}
-            {score.percentage >= 80 && score.percentage < 100 && "Great job!"}
-            {score.percentage >= 60 && score.percentage < 80 && "Good effort!"}
-            {score.percentage < 60 && "Keep practicing, you'll improve!"}
-          </ScoreMessage>
+        <QuizHeader>
+          <QuizTitle>{title}</QuizTitle>
+          <QuizDescription>{description}</QuizDescription>
+        </QuizHeader>
+        
+        <TimerSettingsContainer>
+          <TimerSettingsTitle>
+            <SettingsIcon /> Timer Settings
+          </TimerSettingsTitle>
+          
+          <FormGroup>
+            <FormCheckboxContainer>
+              <FormCheckbox
+                type="checkbox"
+                id="timer-enabled"
+                checked={timerSettings.enabled}
+                onChange={(e) => handleTimerSettingChange('enabled', e.target.checked)}
+              />
+              <FormLabel htmlFor="timer-enabled">Enable Timer</FormLabel>
+            </FormCheckboxContainer>
+          </FormGroup>
+          
+          <FormGroup>
+            <FormLabel htmlFor="timer-duration">Duration (seconds)</FormLabel>
+            <FormInput
+              id="timer-duration"
+              type="number"
+              min="5"
+              max="300"
+              value={timerSettings.duration}
+              onChange={(e) => handleTimerSettingChange('duration', e.target.value)}
+              disabled={!timerSettings.enabled}
+            />
+          </FormGroup>
+          
+          <FormGroup>
+            <FormCheckboxContainer>
+              <FormCheckbox
+                type="checkbox"
+                id="auto-advance"
+                checked={timerSettings.autoAdvance}
+                onChange={(e) => handleTimerSettingChange('autoAdvance', e.target.checked)}
+                disabled={!timerSettings.enabled}
+              />
+              <FormLabel htmlFor="auto-advance">Auto-advance when time expires</FormLabel>
+            </FormCheckboxContainer>
+          </FormGroup>
+          
+          <FormGroup>
+            <FormCheckboxContainer>
+              <FormCheckbox
+                type="checkbox"
+                id="time-based-scoring"
+                checked={timerSettings.timeBasedScoring}
+                onChange={(e) => handleTimerSettingChange('timeBasedScoring', e.target.checked)}
+                disabled={!timerSettings.enabled}
+              />
+              <FormLabel htmlFor="time-based-scoring">Time-based scoring (faster = more points)</FormLabel>
+            </FormCheckboxContainer>
+          </FormGroup>
+        </TimerSettingsContainer>
+        
+        <div style={{ textAlign: 'center' }}>
+          <p>Presenter view: Participants are taking the quiz.</p>
+          <p>Total questions: {questions.length}</p>
+          {leaderboard.length > 0 && (
+            <>
+              <LeaderboardTitle>Live Leaderboard</LeaderboardTitle>
+              <LeaderboardTable>
+                <LeaderboardHeader>
+                  <tr>
+                    <LeaderboardHeaderCell>Rank</LeaderboardHeaderCell>
+                    <LeaderboardHeaderCell>Name</LeaderboardHeaderCell>
+                    <LeaderboardHeaderCell>Score</LeaderboardHeaderCell>
+                  </tr>
+                </LeaderboardHeader>
+                <LeaderboardBody>
+                  {leaderboard
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 10)
+                    .map((entry, index) => (
+                      <LeaderboardRow key={entry.userId}>
+                        <LeaderboardCell>{index + 1}</LeaderboardCell>
+                        <LeaderboardCell>{entry.userName}</LeaderboardCell>
+                        <LeaderboardCell>{entry.score}%</LeaderboardCell>
+                      </LeaderboardRow>
+                    ))}
+                </LeaderboardBody>
+              </LeaderboardTable>
+            </>
+          )}
+        </div>
+      </QuizContainer>
+    );
+  }
+  
+  return (
+    <QuizContainer>
+      <QuizHeader>
+        <QuizTitle>{title}</QuizTitle>
+        <QuizDescription>{description}</QuizDescription>
+        
+        {!quizCompleted && (
+          <>
+            <ProgressBar>
+              <ProgressFill progress={progressPercentage} />
+            </ProgressBar>
+            <QuestionCounter>
+              Question {currentQuestion + 1} of {questions.length}
+            </QuestionCounter>
+          </>
+        )}
+      </QuizHeader>
+      
+      {quizCompleted ? (
+        <ResultsContainer>
+          <ResultsTitle>Quiz Complete!</ResultsTitle>
+          <ScoreMessage>Your score: {score}%</ScoreMessage>
           
           <ScoreDetails>
-            <ScoreDetail>
-              <span>Correct answers:</span>
-              <span>{score.correct}</span>
-            </ScoreDetail>
-            <ScoreDetail>
-              <span>Incorrect answers:</span>
-              <span>{score.incorrect}</span>
-            </ScoreDetail>
-            {score.unanswered > 0 && (
-              <ScoreDetail>
-                <span>Unanswered questions:</span>
-                <span>{score.unanswered}</span>
-              </ScoreDetail>
-            )}
-            <ScoreDetail>
-              <span>Total questions:</span>
-              <span>{score.total}</span>
-            </ScoreDetail>
+            <DetailRow>
+              <span>Total Questions:</span>
+              <span>{questions.length}</span>
+            </DetailRow>
+            <DetailRow>
+              <span>Correct Answers:</span>
+              <span>{totalCorrect}</span>
+            </DetailRow>
+            <DetailRow>
+              <span>Incorrect Answers:</span>
+              <span>{questions.length - totalCorrect}</span>
+            </DetailRow>
+            <DetailRow>
+              <span>Final Score:</span>
+              <span>{score}%</span>
+            </DetailRow>
           </ScoreDetails>
+          
+          <NavigationButton onClick={handleRestart} isPrimary>
+            Restart Quiz
+          </NavigationButton>
           
           {showLeaderboard && leaderboard.length > 0 && (
             <>
@@ -458,70 +707,43 @@ const Quiz = ({
                   {leaderboard
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 10)
-                    .map((entry, index) => (
-                      <LeaderboardRow key={entry.userId}>
-                        <LeaderboardCell>{index + 1}</LeaderboardCell>
-                        <LeaderboardCell highlight={entry.userId === user.id}>
-                          {entry.userName} {entry.userId === user.id && "(You)"}
-                        </LeaderboardCell>
-                        <LeaderboardCell highlight={entry.userId === user.id}>
-                          {entry.score}%
-                        </LeaderboardCell>
-                      </LeaderboardRow>
-                    ))}
-                  {!isUserInLeaderboard && (
-                    <LeaderboardRow>
-                      <LeaderboardCell colSpan="3" style={{ textAlign: 'center' }}>
-                        Your score will appear here after the presenter ends the quiz.
-                      </LeaderboardCell>
-                    </LeaderboardRow>
-                  )}
+                    .map((entry, index) => {
+                      const isCurrentUser = entry.userId === user.id;
+                      return (
+                        <LeaderboardRow key={entry.userId}>
+                          <LeaderboardCell highlight={isCurrentUser}>{index + 1}</LeaderboardCell>
+                          <LeaderboardCell highlight={isCurrentUser}>
+                            {entry.userName}{isCurrentUser ? ' (You)' : ''}
+                          </LeaderboardCell>
+                          <LeaderboardCell highlight={isCurrentUser}>{entry.score}%</LeaderboardCell>
+                        </LeaderboardRow>
+                      );
+                    })}
                 </LeaderboardBody>
               </LeaderboardTable>
             </>
           )}
-          
-          <ButtonContainer>
-            <NavigationButton onClick={handleRestart}>
-              Restart Quiz
-            </NavigationButton>
-          </ButtonContainer>
-        </ScoreContainer>
-      </QuizContainer>
-    );
-  }
-  
-  // Render quiz questions
-  const question = questions[currentQuestion];
-  const selectedAnswer = selectedAnswers[currentQuestion];
-  const isAnswerRevealed = revealedAnswers[currentQuestion];
-  const isAnswerCorrect = selectedAnswer === question.correctOptionIndex;
-  
-  return (
-    <QuizContainer>
-      <QuizHeader>
-        <QuizTitle>{title}</QuizTitle>
-        <QuizDescription>{description}</QuizDescription>
-      </QuizHeader>
-      
-      {!isPresenter && (
+        </ResultsContainer>
+      ) : (
         <>
-          <ProgressBar>
-            <ProgressFill progress={progress} />
-          </ProgressBar>
-          
-          <QuestionCounter>
-            Question {currentQuestion + 1} of {questions.length}
-          </QuestionCounter>
+          {timerSettings.enabled && (
+            <CountdownTimer
+              duration={timerSettings.duration}
+              isActive={!isAnswerRevealed}
+              onComplete={handleTimerComplete}
+              onTick={setQuestionTimeLeft}
+              showProgress={true}
+            />
+          )}
           
           <QuestionContainer>
-            <QuestionText>{question.text}</QuestionText>
+            <QuestionText>{currentQuestionData?.text}</QuestionText>
             
             <OptionsGrid>
-              {question.options.map((option, index) => {
+              {currentQuestionData?.options.map((option, index) => {
                 const optionLabel = String.fromCharCode(65 + index); // A, B, C, D...
                 const isSelected = selectedAnswer === index;
-                const isCorrect = index === question.correctOptionIndex;
+                const isCorrect = index === correctAnswerIndex;
                 const isIncorrect = isAnswerRevealed && isSelected && !isCorrect;
                 
                 return (
@@ -579,39 +801,6 @@ const Quiz = ({
             </NavigationButton>
           </ButtonContainer>
         </>
-      )}
-      
-      {isPresenter && (
-        <div style={{ textAlign: 'center' }}>
-          <p>Presenter view: Participants are taking the quiz.</p>
-          <p>Total questions: {questions.length}</p>
-          {leaderboard.length > 0 && (
-            <>
-              <LeaderboardTitle>Live Leaderboard</LeaderboardTitle>
-              <LeaderboardTable>
-                <LeaderboardHeader>
-                  <tr>
-                    <LeaderboardHeaderCell>Rank</LeaderboardHeaderCell>
-                    <LeaderboardHeaderCell>Name</LeaderboardHeaderCell>
-                    <LeaderboardHeaderCell>Score</LeaderboardHeaderCell>
-                  </tr>
-                </LeaderboardHeader>
-                <LeaderboardBody>
-                  {leaderboard
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 10)
-                    .map((entry, index) => (
-                      <LeaderboardRow key={entry.userId}>
-                        <LeaderboardCell>{index + 1}</LeaderboardCell>
-                        <LeaderboardCell>{entry.userName}</LeaderboardCell>
-                        <LeaderboardCell>{entry.score}%</LeaderboardCell>
-                      </LeaderboardRow>
-                    ))}
-                </LeaderboardBody>
-              </LeaderboardTable>
-            </>
-          )}
-        </div>
       )}
     </QuizContainer>
   );

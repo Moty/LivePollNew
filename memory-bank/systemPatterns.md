@@ -220,3 +220,23 @@ sequenceDiagram
    - User actions dispatched as commands
    - Commands translated to API calls or socket events
    - Provides clear audit trail of user interactions 
+
+## Enhanced Activity Features
+
+### Poll Visualization Pattern
+- **Modular Chart Types**: Each chart type (bar, pie, doughnut, line) is implemented as a separate component with a common interface.
+- **Theme Provider**: Color schemes are managed through a theme provider that applies consistent colors across all chart types.
+- **Animation Configuration**: Animation settings use a decorator pattern to enhance the base chart with custom animations.
+- **Responsive Adaptation**: Charts automatically adjust based on available screen space and device capabilities.
+
+### Quiz Timer Implementation
+- **Countdown Component**: Self-contained component that manages its own timer state.
+- **Time-based Scoring System**: Implements a scoring strategy pattern that calculates points based on response time.
+- **Event-driven Transitions**: Timer completions trigger events that other components can subscribe to.
+- **Progressive Feedback**: Visual indicators that change as time progresses (color changes, progress bar).
+
+### Word Cloud Enhancements
+- **Shape Constraint System**: Uses a masking approach to constrain word placement to specific shapes.
+- **Filter Chain**: Implements a chain of responsibility pattern for word filtering (inappropriate words, filler words, custom filters).
+- **Theme Application**: Uses a strategy pattern for applying different color schemes to the word cloud.
+- **Layout Algorithm Enhancement**: Extends the base d3-cloud layout algorithm with custom placement rules.

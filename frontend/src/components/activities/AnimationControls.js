@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PlayArrow as PlayIcon } from '@material-ui/icons';
 
 const ControlsContainer = styled.div`
   display: flex;
@@ -18,6 +17,9 @@ const ControlsTitle = styled.div`
   svg {
     margin-right: 4px;
     font-size: 16px;
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
   }
 `;
 
@@ -107,7 +109,10 @@ const AnimationControls = ({
   return (
     <ControlsContainer data-testid="animation-controls">
       <ControlsTitle>
-        <PlayIcon /> Animation Settings
+        <svg viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        Animation Settings
       </ControlsTitle>
       <ControlsForm>
         <FormGroup>

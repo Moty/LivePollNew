@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { 
   Bar,
@@ -115,6 +115,32 @@ const VisualizationControls = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.border};
   padding-top: ${({ theme }) => theme.spacing.md};
   margin-top: ${({ theme }) => theme.spacing.md};
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  padding: ${({ theme }) => theme.spacing.md};
+`;
+
+const VisualizationControlsToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  background-color: ${({ theme }) => theme.colors.background.secondary};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  padding: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.sm};
+  cursor: pointer;
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.background.secondary + 'DD'};
+  }
+  
+  svg {
+    margin-right: ${({ theme }) => theme.spacing.sm};
+  }
 `;
 
 const ChartContainer = styled.div`
@@ -129,6 +155,23 @@ const ParticipantCount = styled.div`
   font-size: ${({ theme }) => theme.fontSizes.small};
 `;
 
+const PreviewButton = styled.button`
+  background-color: ${({ theme }) => theme.colors.secondary};
+  color: ${({ theme }) => theme.colors.text.light};
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius.default};
+  padding: ${({ theme }) => theme.spacing.sm};
+  font-size: ${({ theme }) => theme.fontSizes.small};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  margin-top: ${({ theme }) => theme.spacing.md};
+  display: block;
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.secondary + 'DD'};
+  }
+`;
+
 /**
  * Poll Component
  * @param {Object} props
@@ -141,13 +184,12 @@ const ParticipantCount = styled.div`
  * @param {string} props.chartType - Chart type to display results (bar, pie, doughnut, horizontalBar)
  * @param {Object} props.colorScheme - Custom color scheme for the chart
  * @param {Object} props.animation - Animation settings for the chart
- * @param {function} props.onVote - Function called when user votes
- * @param {function} props.onSettingsChange - Function called when visualization settings change
+ * @param {function} props.onVote - Function called when a vote is submitted
  */
-const Poll = ({ 
+const Poll = ({
   id,
   question,
-  options,
+  options = [],
   isPresenter = false,
   showResults = false,
   results = null,
@@ -159,60 +201,50 @@ const Poll = ({
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
-  const [pollResults, setPollResults] = useState(results || options.map(option => ({ option: option, votes: 0 })));
-  const [totalVotes, setTotalVotes] = useState(0);
-  
-  // Visualization settings
   const [chartType, setChartType] = useState(initialChartType);
   const [colorScheme, setColorScheme] = useState(initialColorScheme);
   const [animation, setAnimation] = useState(initialAnimation);
+  const [showControls, setShowControls] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const chartRef = useRef(null);
   
-  // Update results when props change
+  // If results are provided, use them; otherwise create empty results
+  const pollResults = results || options.map((option, index) => ({
+    option,
+    votes: 0
+  }));
+  
+  const totalVotes = pollResults.reduce((sum, item) => sum + item.votes, 0);
+  
   useEffect(() => {
-    if (results) {
-      setPollResults(results);
-      setTotalVotes(results.reduce((sum, item) => sum + item.votes, 0));
+    // If results change and we're not the presenter, mark as voted
+    if (results && !isPresenter) {
+      setHasVoted(true);
     }
-  }, [results]);
-  
-  // Update visualization settings when props change
-  useEffect(() => {
-    setChartType(initialChartType);
-  }, [initialChartType]);
-  
-  useEffect(() => {
-    setColorScheme(initialColorScheme);
-  }, [initialColorScheme]);
-  
-  useEffect(() => {
-    setAnimation(initialAnimation);
-  }, [initialAnimation]);
+  }, [results, isPresenter]);
   
   const handleOptionSelect = (index) => {
-    if (!hasVoted) {
-      setSelectedOption(index);
-    }
+    setSelectedOption(index);
   };
   
   const handleSubmit = () => {
     if (selectedOption !== null) {
       setHasVoted(true);
       
-      // Call parent onVote function
       if (onVote) {
-        onVote(id, selectedOption);
+        onVote({
+          pollId: id,
+          optionIndex: selectedOption
+        });
       }
       
-      // For demo/preview, update local state
-      if (!results) {
-        const updatedResults = [...pollResults];
-        updatedResults[selectedOption] = {
-          ...updatedResults[selectedOption],
-          votes: updatedResults[selectedOption].votes + 1
+      // Create local results before server response
+      const newResults = [...pollResults];
+      if (newResults[selectedOption]) {
+        newResults[selectedOption] = {
+          ...newResults[selectedOption],
+          votes: newResults[selectedOption].votes + 1
         };
-        
-        setPollResults(updatedResults);
-        setTotalVotes(prevTotal => prevTotal + 1);
       }
     }
   };
@@ -252,6 +284,16 @@ const Poll = ({
       });
     }
   };
+
+  const handlePreviewAnimation = () => {
+    if (chartRef.current) {
+      setIsAnimating(true);
+      chartRef.current.update();
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, animation.duration + animation.delay + 100);
+    }
+  };
   
   // Get the current color scheme
   const currentColors = typeof colorScheme === 'string'
@@ -268,6 +310,14 @@ const Poll = ({
         backgroundColor: currentColors?.backgroundColor || COLOR_SCHEMES.default.backgroundColor,
         borderColor: currentColors?.borderColor || COLOR_SCHEMES.default.borderColor,
         borderWidth: 1,
+        // Add tension for line chart
+        tension: 0.3,
+        // Add point styling for line chart
+        pointBackgroundColor: currentColors?.backgroundColor || COLOR_SCHEMES.default.backgroundColor,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
       },
     ],
   };
@@ -282,9 +332,16 @@ const Poll = ({
         ticks: {
           precision: 0
         }
+      },
+      x: {
+        ticks: {
+          autoSkip: true,
+          maxRotation: chartType === 'horizontalBar' ? 0 : 45,
+          minRotation: 0
+        }
       }
     } : undefined,
-    indexAxis: chartType === 'horizontalBar' ? 'y' : undefined,
+    indexAxis: chartType === 'horizontalBar' ? 'y' : 'x',
     plugins: {
       legend: {
         display: chartType === 'pie' || chartType === 'doughnut',
@@ -302,27 +359,27 @@ const Poll = ({
         }
       }
     },
-    animation: {
+    animation: isAnimating ? {
       duration: animation.duration,
       easing: animation.easing,
       delay: animation.delay
-    }
+    } : false
   };
   
   // Render the appropriate chart based on chartType
   const renderChart = () => {
     switch(chartType) {
       case 'pie':
-        return <Pie data={chartData} options={chartOptions} />;
+        return <Pie ref={chartRef} data={chartData} options={chartOptions} />;
       case 'doughnut':
-        return <Doughnut data={chartData} options={chartOptions} />;
+        return <Doughnut ref={chartRef} data={chartData} options={chartOptions} />;
       case 'horizontalBar':
-        return <Bar data={chartData} options={chartOptions} />;
+        return <Bar ref={chartRef} data={chartData} options={chartOptions} />;
       case 'line':
-        return <Line data={chartData} options={chartOptions} />;
+        return <Line ref={chartRef} data={chartData} options={chartOptions} />;
       case 'bar':
       default:
-        return <Bar data={chartData} options={chartOptions} />;
+        return <Bar ref={chartRef} data={chartData} options={chartOptions} />;
     }
   };
   
@@ -362,23 +419,37 @@ const Poll = ({
               {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'} cast
             </ParticipantCount>
             
-            {isPresenter && (
-              <VisualizationControls>
-                <ChartTypeSelector 
-                  selectedType={chartType} 
-                  onChange={handleChartTypeChange}
-                />
+            {(isPresenter || showResults) && (
+              <>
+                <VisualizationControlsToggle
+                  onClick={() => setShowControls(!showControls)}
+                >
+                  {showControls ? 'Hide Visualization Controls' : 'Show Visualization Controls'}
+                </VisualizationControlsToggle>
                 
-                <ColorSchemeSelector 
-                  selectedScheme={colorScheme}
-                  onChange={handleColorSchemeChange}
-                />
-                
-                <AnimationControls 
-                  animation={animation}
-                  onChange={handleAnimationChange}
-                />
-              </VisualizationControls>
+                {showControls && (
+                  <VisualizationControls>
+                    <ChartTypeSelector 
+                      selectedType={chartType} 
+                      onChange={handleChartTypeChange}
+                    />
+                    
+                    <ColorSchemeSelector 
+                      selectedScheme={colorScheme}
+                      onChange={handleColorSchemeChange}
+                    />
+                    
+                    <AnimationControls 
+                      animation={animation}
+                      onChange={handleAnimationChange}
+                    />
+                    
+                    <PreviewButton onClick={handlePreviewAnimation}>
+                      Preview Animation
+                    </PreviewButton>
+                  </VisualizationControls>
+                )}
+              </>
             )}
           </ResultsContainer>
         )
