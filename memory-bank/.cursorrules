@@ -1,0 +1,158 @@
+# LearnConnectLive Project Intelligence
+
+This file captures important patterns, preferences, and project-specific intelligence about the LearnConnectLive application.
+
+## Code Organization Patterns
+
+### Component Structure
+- All React components should use functional component pattern with hooks
+- Component files should export a single default component
+- Styled components should be defined at the top of the file
+- Props should be destructured in the component parameter list
+- Each component should have clear prop documentation
+
+### File Naming and Organization
+- React components use PascalCase (e.g., `PresentationView.js`)
+- Utilities and hooks use camelCase (e.g., `apiService.js`)
+- All components should be in appropriate directories:
+  - `frontend/src/components/activities/` for activity components
+  - `frontend/src/components/common/` for shared UI components
+  - `frontend/src/pages/` for page-level components
+
+### Import Order
+- React and third-party libraries first
+- Local components second
+- Utilities and services third
+- Styles and assets last
+
+## Socket Connection Patterns
+
+### Socket Initialization
+- Socket connections should be initialized with both WebSocket and HTTP polling transports
+- Always include reconnection options with exponential backoff
+- Connection timeouts should be set to at least 10 seconds
+- Always add detailed logging for connection events
+
+### Socket Event Handling
+- Use namespaced event names for clarity (e.g., `activity-started`, `activity-response`)
+- Always handle basic lifecycle events: connect, disconnect, error
+- Include error handling for all event callbacks
+- Clean up socket listeners in useEffect cleanup functions
+
+### Socket Reconnection Strategy
+- Implement multiple heartbeat mechanisms (redundancy is preferred)
+- Use the forcePersistentConnection pattern for critical connections
+- Store session state to survive reconnections
+- Include manual reconnection options in the UI
+
+## State Management Patterns
+
+### Context Usage
+- NotificationContext for success/error messages
+- AuthContext for user authentication state
+- Prefer local component state for UI-specific state
+- Use useReducer for complex local state
+
+### Data Flow
+- Props down, events up pattern
+- Avoid prop drilling more than 2 levels deep
+- Use callback props for child-to-parent communication
+- Prefer controlled components for form elements
+
+## Error Handling Patterns
+
+### API Error Handling
+- Centralized error handling in API service
+- Always include error messages in the UI
+- Add retry mechanisms for transient errors
+- Log detailed error information to console in development
+
+### UI Error States
+- Show loading states for all asynchronous operations
+- Include clear error messages when things fail
+- Provide action buttons for recovery (retry, etc.)
+- Use error boundaries for component rendering errors
+
+## Performance Patterns
+
+### Optimization Techniques
+- Memoize expensive calculations with useMemo
+- Prevent unnecessary rerenders with React.memo
+- Use callback memoization with useCallback
+- Virtualize large lists to improve rendering performance
+
+### Network Optimization
+- Debounce user input that triggers network requests
+- Implement request caching for frequent data
+- Use socket events for real-time updates instead of polling
+- Batch updates to minimize rerenders
+
+## Known Challenge Areas
+
+### Socket Connection Stability
+- Corporate networks often block WebSockets - always fall back to HTTP polling
+- Mobile devices entering sleep mode disconnect - implement reconnection on focus
+- Network transitions can cause socket failures - monitor connection state changes
+- Multiple tab instances can cause conflicts - implement tab detection
+
+### Real-time UI Updates
+- Updating charts in real-time can cause performance issues - throttle updates
+- Animations can be expensive - use CSS transitions when possible
+- Large numbers of participants can overwhelm UI - implement pagination or virtualization
+- Complex visualizations can be slow to render - use canvas-based rendering
+
+### Mobile Support Challenges
+- Ensure touch targets are at least 44x44px for mobile usability
+- Be aware that mobile browsers may have limited localStorage
+- Mobile devices have variable network quality - implement progressive enhancement
+- Mobile WebViews may have different behavior than native browsers
+
+## User Preferences
+
+### Code Style
+- Prefer explicit returns over implicit for readability
+- Use early returns to reduce nesting
+- Destructure props and state in function parameters
+- Document complex logic with comments
+- Use constants for magic values and string literals
+
+### UI/UX Preferences
+- Use clear, actionable error messages
+- Provide loading indicators for all async operations
+- Enable keyboard navigation for all interactive elements
+- Ensure sufficient color contrast (WCAG AA compliance)
+- Provide confirmation for destructive actions
+
+## Development Workflow
+
+### Testing Strategy
+- Focus on integration tests for critical user flows
+- Unit test utilities and business logic
+- Manual testing for UI interactions
+- Cross-browser testing for key features
+
+### Documentation Approach
+- Document complex components with JSDoc
+- Keep README.md updated with setup instructions
+- Document API endpoints and socket events
+- Use detailed commit messages
+
+## Critical Implementation Details
+
+### Session Management
+- Session codes are short-lived and should be regenerated for each presentation
+- Store session data in activeSessions map on the server
+- Use sessionCodes map to look up sessionId from code
+- Maintain participant counts in session data
+
+### Activity Handling
+- Activities must have a unique _id property
+- All activities must have a type property (poll, quiz, qa, wordcloud)
+- Responses should be stored on the activity object
+- Use activityId to route responses to the correct activity
+
+### Security Considerations
+- Use HTTPS for all communications
+- Sanitize user input for XSS prevention
+- Validate session access with codes
+- Implement rate limiting for socket events 
