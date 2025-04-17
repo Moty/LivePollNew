@@ -33,6 +33,13 @@ LearnConnectLive is in active development with core functionality implemented an
 - ✅ Clear connection status indicators
 - ✅ Manual reconnection options
 
+### User Interface / Editing Workflow
+- ✅ Activity Edit Modal navigation fixed (no longer redirects)
+- ✅ Event propagation handled in modal
+- ✅ Success notification on activity update
+- ✅ Activity `mode` setting implemented ('edit'/'present')
+- ✅ Activity components respect `mode` setting for editability
+
 ### Data Management
 - ✅ Basic data persistence
 - ✅ Mock data fallback when database unavailable
@@ -125,6 +132,13 @@ LearnConnectLive is in active development with core functionality implemented an
 - **Participant Tracking**: Enhanced tracking of participant counts and activity
 - **Event Handling**: Standardized socket event handling and response formatting
 - **Mock Data Fallback**: Added graceful degradation when database is unavailable
+
+#### Activity Settings & Editing Workflow
+- **Activity Mode**: Implemented `mode` property ('edit'/'present') on activities to control settings visibility/editability.
+- **Component Updates**: Updated activity components (Quiz, WordCloud, etc.) to check `mode` before rendering settings.
+- **Modal Navigation Fix**: Corrected the `ActivityEditModal` behavior to prevent navigation away from the edit page upon saving changes.
+- **Event Handling**: Added `stopPropagation` in modal event handlers to prevent unintended parent actions.
+- **Notifications**: Added success toast notification after successful activity update.
 
 ### In Progress
 

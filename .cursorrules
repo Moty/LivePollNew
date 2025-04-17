@@ -1,0 +1,6 @@
+# .cursorrules - Project Intelligence
+
+## Patterns & Preferences
+
+*   **Styled Components:** Use transient props (prefix with `$`) for component-specific boolean or styling props that should not be passed down to the underlying DOM element (e.g., `$primary`, `$danger`, `$selected`). This prevents React warnings.
+*   **Activity Settings Control:** Use a `mode` property (`'edit'` or `'present'`) on activity data objects. Within activity components, conditionally render settings configuration UI based on this mode (e.g., `{mode === 'edit' && (...settings UI...)}`). This ensures settings are only configurable in the appropriate context (editing vs. presenting).

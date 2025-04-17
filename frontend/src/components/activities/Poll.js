@@ -185,6 +185,7 @@ const PreviewButton = styled.button`
  * @param {Object} props.colorScheme - Custom color scheme for the chart
  * @param {Object} props.animation - Animation settings for the chart
  * @param {function} props.onVote - Function called when a vote is submitted
+ * @param {string} props.mode - Mode of the poll (present or edit)
  */
 const Poll = ({
   id,
@@ -197,7 +198,8 @@ const Poll = ({
   colorScheme: initialColorScheme = 'default',
   animation: initialAnimation = { duration: 1000, easing: 'easeOutQuad', delay: 0 },
   onVote,
-  onSettingsChange
+  onSettingsChange,
+  mode = 'present',
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
@@ -421,33 +423,34 @@ const Poll = ({
             
             {(isPresenter || showResults) && (
               <>
-                <VisualizationControlsToggle
-                  onClick={() => setShowControls(!showControls)}
-                >
-                  {showControls ? 'Hide Visualization Controls' : 'Show Visualization Controls'}
-                </VisualizationControlsToggle>
-                
-                {showControls && (
-                  <VisualizationControls>
-                    <ChartTypeSelector 
-                      selectedType={chartType} 
-                      onChange={handleChartTypeChange}
-                    />
-                    
-                    <ColorSchemeSelector 
-                      selectedScheme={colorScheme}
-                      onChange={handleColorSchemeChange}
-                    />
-                    
-                    <AnimationControls 
-                      animation={animation}
-                      onChange={handleAnimationChange}
-                    />
-                    
-                    <PreviewButton onClick={handlePreviewAnimation}>
-                      Preview Animation
-                    </PreviewButton>
-                  </VisualizationControls>
+                {/* Only show controls in edit mode */}
+                {mode === 'edit' && (
+                  <>
+                    <VisualizationControlsToggle
+                      onClick={() => setShowControls(!showControls)}
+                    >
+                      {showControls ? 'Hide Visualization Controls' : 'Show Visualization Controls'}
+                    </VisualizationControlsToggle>
+                    {showControls && (
+                      <VisualizationControls>
+                        <ChartTypeSelector 
+                          selectedType={chartType} 
+                          onChange={handleChartTypeChange}
+                        />
+                        <ColorSchemeSelector 
+                          selectedScheme={colorScheme}
+                          onChange={handleColorSchemeChange}
+                        />
+                        <AnimationControls 
+                          animation={animation}
+                          onChange={handleAnimationChange}
+                        />
+                        <PreviewButton onClick={handlePreviewAnimation}>
+                          Preview Animation
+                        </PreviewButton>
+                      </VisualizationControls>
+                    )}
+                  </>
                 )}
               </>
             )}

@@ -42,6 +42,12 @@ Our immediate development focus is on enhancing interactive activities with adva
   - Created inappropriate word filtering system
   - Added support for custom filter lists
 
+- ✅ Implemented `mode` property ('edit'/'present') for activities to control settings configuration
+- ✅ Updated activity components (Quiz, WordCloud, etc.) to respect `mode`
+- ✅ Fixed Activity Edit Modal navigation issue (preventing redirect on save)
+- ✅ Improved event handling in modals (`stopPropagation`)
+- ✅ Added success notification on activity update in modal
+
 ### Socket Connection Fixes
 - ✅ Implemented forcePersistentConnection mechanism to maintain socket connections
 - ✅ Added multiple heartbeat methods to prevent timeouts
@@ -81,59 +87,38 @@ Our immediate development focus is on enhancing interactive activities with adva
 ## Next Steps
 
 ### Short-term (Next 2 Weeks)
-1. Complete Q&A answer tracking feature
-   - Add mark as answered functionality
-   - Implement answer text field for presenters
-   - Create filtering by answer status
-   - Improve sorting of answered/unanswered questions
+1. **Test Activity Mode Functionality**
+   - Conduct thorough testing across all activity types
+   - Validate settings persistence between edit/present modes
+   - Ensure consistent behavior
 
-2. Begin analytics dashboard foundation
-   - Design overall dashboard layout and structure
-   - Define key metrics and data aggregation methods
-   - Create initial visualization components
-   - Implement data collection pipeline
+2. **Review and Refine**
+   - Check for console warnings or errors (especially styled-components related)
+   - Review recent changes for potential improvements
 
-3. Enhance mobile experience
-   - Further optimize UI for small screens
-   - Improve touch interactions for all activities
-   - Reduce data usage for limited connections
+3. **Gather User Feedback**
+   - Collect feedback on the updated activity editing experience
+
+4. **Documentation**
+   - Update developer/user docs regarding the `mode` setting and modal behavior
 
 ### Medium-term (1-2 Months)
-1. Complete analytics dashboard
-   - Implement time-based engagement metrics
-   - Add participant activity tracking
-   - Create session comparison tools
-   - Add customizable dashboard views
+1. **Complete Q&A Answer Tracking**
+   - Add mark as answered, answer text field, filtering
 
-2. Enhance export functionality
-   - Add PDF report generation
-   - Create customizable export templates
-   - Implement batch export capabilities
-   - Add interactive elements to exported reports
-
-3. Improve database optimization
-   - Implement caching strategy for frequently accessed data
-   - Optimize queries for high-volume sessions
-   - Add data archiving process for old presentations
+2. **Begin Analytics Dashboard**
+   - Design layout, define metrics, create components
+   - Implement data collection pipeline
 
 ### Long-term (3+ Months)
-1. Implement enterprise integration features
-   - LMS integration capabilities
-   - SSO authentication options
-   - Custom branding options
-   - Multi-team collaboration features
+1. **Complete Analytics Dashboard**
+   - Time-based metrics, participant tracking, comparison tools
 
-2. Add advanced collaboration features
-   - Team management for presenters
-   - Collaborative presentation editing
-   - Shared analytics and insights
-   - Real-time presenter collaboration
+2. **Enhance Export Functionality**
+   - PDF reports, templates, batch export
 
-3. Develop offline capabilities
-   - Full offline mode for presentations
-   - Background synchronization when connectivity returns
-   - Local-first data architecture
-   - Conflict resolution for offline changes
+3. **Database Optimization & Enterprise Features**
+   - Caching, query optimization, LMS/SSO integration
 
 ## Active Decisions
 
@@ -195,3 +180,8 @@ Our immediate development focus is on enhancing interactive activities with adva
    - Implemented shape constraints through polygon masking
    - Created word filtering system for inappropriate content
    - Added support for custom filter lists and filler word filtering
+
+4. **Activity Editing Workflow**
+   - Updated `ActivityEditModal.js` to handle save without navigation
+   - Modified `EditPresentation/index.js` to correctly handle `handleSaveActivity`
+   - Implemented `mode` property logic in relevant activity components

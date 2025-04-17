@@ -344,22 +344,23 @@ const FormCheckbox = styled.input`
  * @param {string} props.title - Quiz title
  * @param {string} props.description - Quiz description
  * @param {Array} props.questions - Array of question objects
- * @param {boolean} props.isPresenter - Whether current user is presenter
- * @param {boolean} props.showResults - Whether to show results immediately
- * @param {boolean} props.showLeaderboard - Whether to show leaderboard
- * @param {Array} props.leaderboard - Array of leaderboard entries
- * @param {Object} props.user - Current user object
+ * @param {boolean} props.isPresenter - Whether the current user is a presenter
+ * @param {string} props.mode - Mode of the quiz: 'edit' or 'present'
+ * @param {boolean} props.showLeaderboard - Whether to show the leaderboard on completion
+ * @param {Array} props.leaderboard - Leaderboard data
+ * @param {Object} props.user - Current user info
  * @param {Object} props.timerSettings - Timer settings object
- * @param {function} props.onSubmit - Function called when an answer is submitted
+ * @param {function} props.onSubmit - Function called when user submits an answer
  * @param {function} props.onComplete - Function called when quiz is completed
+ * @param {function} props.onTimerSettingsChange - Function called when timer settings change
  */
 const Quiz = ({
   id,
-  title = "Quiz",
-  description = "Test your knowledge",
-  isPresenter = false,
+  title,
+  description,
   questions = [],
-  showResults = true,
+  isPresenter = false,
+  mode = 'present', // 'edit' or 'present'
   showLeaderboard = true,
   leaderboard = [],
   user = { id: 'user1', name: 'Anonymous' },
@@ -419,7 +420,7 @@ const Quiz = ({
     newAnswers[questionIndex] = optionIndex;
     setUserAnswers(newAnswers);
     
-    if (showResults) {
+    if (showLeaderboard) {
       setIsAnswerRevealed(true);
       
       // If timer is enabled and time-based scoring is enabled, calculate score based on time left
@@ -448,7 +449,7 @@ const Quiz = ({
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
       // Move to next question
-      if (showResults) {
+      if (showLeaderboard) {
         setIsAnswerRevealed(false);
       }
       setCurrentQuestion(prevQuestion => prevQuestion + 1);
@@ -475,7 +476,7 @@ const Quiz = ({
   const handlePrevious = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(prevQuestion => prevQuestion - 1);
-      if (showResults) {
+      if (showLeaderboard) {
         setIsAnswerRevealed(userAnswers[currentQuestion - 1] !== undefined);
       }
     }
@@ -510,7 +511,7 @@ const Quiz = ({
       }
       
       // Reveal answer briefly before advancing
-      if (showResults) {
+      if (showLeaderboard) {
         setIsAnswerRevealed(true);
         setTimeout(() => {
           handleNext();
@@ -555,62 +556,65 @@ const Quiz = ({
           <QuizDescription>{description}</QuizDescription>
         </QuizHeader>
         
-        <TimerSettingsContainer>
-          <TimerSettingsTitle>
-            <SettingsIcon /> Timer Settings
-          </TimerSettingsTitle>
-          
-          <FormGroup>
-            <FormCheckboxContainer>
-              <FormCheckbox
-                type="checkbox"
-                id="timer-enabled"
-                checked={timerSettings.enabled}
-                onChange={(e) => handleTimerSettingChange('enabled', e.target.checked)}
-              />
-              <FormLabel htmlFor="timer-enabled">Enable Timer</FormLabel>
-            </FormCheckboxContainer>
-          </FormGroup>
-          
-          <FormGroup>
-            <FormLabel htmlFor="timer-duration">Duration (seconds)</FormLabel>
-            <FormInput
-              id="timer-duration"
-              type="number"
-              min="5"
-              max="300"
-              value={timerSettings.duration}
-              onChange={(e) => handleTimerSettingChange('duration', e.target.value)}
-              disabled={!timerSettings.enabled}
-            />
-          </FormGroup>
-          
-          <FormGroup>
-            <FormCheckboxContainer>
-              <FormCheckbox
-                type="checkbox"
-                id="auto-advance"
-                checked={timerSettings.autoAdvance}
-                onChange={(e) => handleTimerSettingChange('autoAdvance', e.target.checked)}
+        {/* Timer settings are only shown during activity creation/editing, not during presentation */}
+        {mode === 'edit' && (
+          <TimerSettingsContainer>
+            <TimerSettingsTitle>
+              <SettingsIcon /> Timer Settings
+            </TimerSettingsTitle>
+            
+            <FormGroup>
+              <FormCheckboxContainer>
+                <FormCheckbox
+                  type="checkbox"
+                  id="timer-enabled"
+                  checked={timerSettings.enabled}
+                  onChange={(e) => handleTimerSettingChange('enabled', e.target.checked)}
+                />
+                <FormLabel htmlFor="timer-enabled">Enable Timer</FormLabel>
+              </FormCheckboxContainer>
+            </FormGroup>
+            
+            <FormGroup>
+              <FormLabel htmlFor="timer-duration">Duration (seconds)</FormLabel>
+              <FormInput
+                id="timer-duration"
+                type="number"
+                min="5"
+                max="300"
+                value={timerSettings.duration}
+                onChange={(e) => handleTimerSettingChange('duration', e.target.value)}
                 disabled={!timerSettings.enabled}
               />
-              <FormLabel htmlFor="auto-advance">Auto-advance when time expires</FormLabel>
-            </FormCheckboxContainer>
-          </FormGroup>
-          
-          <FormGroup>
-            <FormCheckboxContainer>
-              <FormCheckbox
-                type="checkbox"
-                id="time-based-scoring"
-                checked={timerSettings.timeBasedScoring}
-                onChange={(e) => handleTimerSettingChange('timeBasedScoring', e.target.checked)}
-                disabled={!timerSettings.enabled}
-              />
-              <FormLabel htmlFor="time-based-scoring">Time-based scoring (faster = more points)</FormLabel>
-            </FormCheckboxContainer>
-          </FormGroup>
-        </TimerSettingsContainer>
+            </FormGroup>
+            
+            <FormGroup>
+              <FormCheckboxContainer>
+                <FormCheckbox
+                  type="checkbox"
+                  id="auto-advance"
+                  checked={timerSettings.autoAdvance}
+                  onChange={(e) => handleTimerSettingChange('autoAdvance', e.target.checked)}
+                  disabled={!timerSettings.enabled}
+                />
+                <FormLabel htmlFor="auto-advance">Auto-advance when time expires</FormLabel>
+              </FormCheckboxContainer>
+            </FormGroup>
+            
+            <FormGroup>
+              <FormCheckboxContainer>
+                <FormCheckbox
+                  type="checkbox"
+                  id="time-based-scoring"
+                  checked={timerSettings.timeBasedScoring}
+                  onChange={(e) => handleTimerSettingChange('timeBasedScoring', e.target.checked)}
+                  disabled={!timerSettings.enabled}
+                />
+                <FormLabel htmlFor="time-based-scoring">Time-based scoring (faster = more points)</FormLabel>
+              </FormCheckboxContainer>
+            </FormGroup>
+          </TimerSettingsContainer>
+        )}
         
         <div style={{ textAlign: 'center' }}>
           <p>Presenter view: Participants are taking the quiz.</p>
@@ -795,7 +799,7 @@ const Quiz = ({
             <NavigationButton
               onClick={handleNext}
               isPrimary
-              disabled={selectedAnswer === undefined && !showResults}
+              disabled={selectedAnswer === undefined && !showLeaderboard}
             >
               {currentQuestion < questions.length - 1 ? 'Next' : 'Finish'}
             </NavigationButton>

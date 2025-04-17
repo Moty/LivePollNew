@@ -1077,6 +1077,7 @@ const PresentationView = () => {
               votes: Array.isArray(response) ? response.length : (typeof response === 'number' ? response : 0)
             }))}
             showResults={true}
+            mode="present"
           />;
       case 'quiz':
           return <Quiz 
@@ -1086,6 +1087,7 @@ const PresentationView = () => {
             questions={safeActivity.questions}
             responses={safeActivity.responses || []}
             showResults={true}
+            mode="present"
           />;
       case 'wordcloud':
           // Process word cloud data - count word frequencies
@@ -1100,19 +1102,18 @@ const PresentationView = () => {
               }
             }
           });
-          
           // Convert to the format expected by the WordCloud component: [{text, value}]
           const formattedWords = Object.keys(wordFrequency).map(word => ({
             text: word,
             value: wordFrequency[word]
           }));
-          
           return <WordCloud 
             isPresenter={true}
             id={safeActivity._id}
             title={safeActivity.title || "Word Cloud"}
             description={safeActivity.description || safeActivity.question || "Submit words that come to mind"}
             words={formattedWords}
+            mode="present"
           />;
       case 'qa':
           return <QA 
@@ -1122,6 +1123,7 @@ const PresentationView = () => {
             questions={safeActivity.responses?.map(q => (
               typeof q === 'object' ? q : { text: String(q), votes: 0, id: Math.random().toString() }
             )) || []}
+            mode="present"
           />;
       default:
           console.warn(`Unknown activity type: ${activeActivity.type}`);

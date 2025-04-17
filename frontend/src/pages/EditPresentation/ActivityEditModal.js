@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import PollEditor from './ActivityEditors/PollEditor';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -137,7 +138,7 @@ const Button = styled.button`
   font-size: 1rem;
   cursor: pointer;
   
-  ${props => props.secondary && `
+  ${props => props.$secondary && `
     background-color: #e0e0e0;
     border: 1px solid #ccc;
     color: #333;
@@ -147,7 +148,7 @@ const Button = styled.button`
     }
   `}
   
-  ${props => props.primary && `
+  ${props => props.$primary && `
     background-color: #2196f3;
     border: 1px solid #1976d2;
     color: white;
@@ -157,73 +158,6 @@ const Button = styled.button`
     }
   `}
 `;
-
-// Poll-specific editor component
-const PollEditor = ({ config, onChange }) => {
-  const [question, setQuestion] = useState(config?.question || '');
-  const [options, setOptions] = useState(config?.options || ['', '']);
-  
-  useEffect(() => {
-    onChange({ question, options });
-  }, [question, options, onChange]);
-  
-  const handleAddOption = () => {
-    setOptions([...options, '']);
-  };
-  
-  const handleRemoveOption = (index) => {
-    const newOptions = [...options];
-    newOptions.splice(index, 1);
-    setOptions(newOptions);
-  };
-  
-  const handleOptionChange = (index, value) => {
-    const newOptions = [...options];
-    newOptions[index] = value;
-    setOptions(newOptions);
-  };
-  
-  return (
-    <>
-      <FormGroup>
-        <Label htmlFor="question">Question</Label>
-        <Input
-          id="question"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Enter your poll question"
-        />
-      </FormGroup>
-      
-      <FormGroup>
-        <Label>Options</Label>
-        <OptionsContainer>
-          {options.map((option, index) => (
-            <OptionItem key={index}>
-              <Input
-                value={option}
-                onChange={(e) => handleOptionChange(index, e.target.value)}
-                placeholder={`Option ${index + 1}`}
-                style={{ flex: 1 }}
-              />
-              {options.length > 2 && (
-                <RemoveButton 
-                  type="button"
-                  onClick={() => handleRemoveOption(index)}
-                >
-                  Remove
-                </RemoveButton>
-              )}
-            </OptionItem>
-          ))}
-          <AddButton type="button" onClick={handleAddOption}>
-            Add Option
-          </AddButton>
-        </OptionsContainer>
-      </FormGroup>
-    </>
-  );
-};
 
 // Quiz-specific editor component
 const QuizEditor = ({ config, onChange }) => {
@@ -418,43 +352,126 @@ const QAEditor = ({ config, onChange }) => {
 };
 
 const ActivityEditModal = ({ activity, onSave, onClose }) => {
-  const [title, setTitle] = useState(activity?.title || '');
-  const [config, setConfig] = useState(activity?.config || {});
-  const activityType = activity?.type || 'poll';
+  console.log('ActivityEditModal received activity:', activity);
   
+  // Store the activity type in state to prevent it from being lost across re-renders
+  const [activityType, setActivityType] = useState('');
+  const [title, setTitle] = useState('');
+  const [config, setConfig] = useState({});
+  const [mode, setMode] = useState('edit');
+  const [originalId, setOriginalId] = useState(''); // Store the ID separately to ensure it's not lost
+  
+  // Initialize all state values from the activity on component mount and when activity changes
+  useEffect(() => {
+    console.log('Activity in useEffect:', activity);
+    if (activity) {
+      console.log('Setting from activity with ID:', activity.id);
+      setOriginalId(activity.id); // Store ID separately
+      setActivityType(activity.type || 'poll');
+      setTitle(activity.title || '');
+      setConfig(activity.config || {});
+      setMode(activity.mode || 'edit');
+    }
+  }, [activity]);
+  
+  // Log the detected type
+  console.log('Current activityType state:', activityType);
+  console.log('Original ID:', originalId);
+  
+  // Stop event propagation and handle form submission
   const handleSave = (e) => {
-    e.preventDefault();
+    console.log('[ActivityEditModal] handleSave fired');
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
+    console.log('[ActivityEditModal] Original activity before update:', activity);
+    
+    // Make sure we have a valid activity object with an ID
+    if (!activity) {
+      console.error('[ActivityEditModal] Invalid original activity:', activity);
+      return;
+    }
+    
+    // Use the originalId if activity.id is not available (as a backup)
+    const activityId = activity.id || originalId;
+    
+    if (!activityId) {
+      console.error('[ActivityEditModal] Cannot update activity without an ID');
+      return;
+    }
+    
+    // Create a proper copy of the original activity to avoid reference issues
     const updatedActivity = {
+      // First, ensure we include ALL properties from the original activity
       ...activity,
+      // Then override with our updated values
+      id: activityId, // Explicitly include the ID
       title,
-      config
+      type: activityType,  // Explicitly include the activity type
+      config,
+      mode
     };
     
-    onSave(updatedActivity);
+    console.log('[ActivityEditModal] Sending updated activity to parent:', updatedActivity);
+    console.log('[ActivityEditModal] Activity ID check:', updatedActivity.id);
+    
+    if (typeof onSave === 'function') {
+      console.log('[ActivityEditModal] onSave is a function, calling onSave');
+      onSave(updatedActivity);
+    } else {
+      console.error('[ActivityEditModal] onSave is not a function:', onSave);
+    }
+  };
+  
+  // Handle modal close with prevention of propagation
+  const handleClose = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (typeof onClose === 'function') {
+      onClose();
+    }
   };
   
   const renderEditor = () => {
-    switch (activityType) {
+    // Log before switch to help debug
+    console.log('renderEditor called with activityType:', activityType);
+    
+    // Make the switch case more explicit for better debugging
+    // Include toLowerCase() for case-insensitive matching
+    const type = String(activityType).toLowerCase();
+    console.log('Normalized activity type for switch:', type);
+    
+    switch (type) {
       case 'poll':
-        return <PollEditor config={config} onChange={setConfig} />;
+        console.log('Rendering PollEditor');
+        return <PollEditor activity={config} onChange={setConfig} mode="edit" />;
       case 'quiz':
+        console.log('Rendering QuizEditor');
         return <QuizEditor config={config} onChange={setConfig} />;
       case 'wordcloud':
+        console.log('Rendering WordCloudEditor');
         return <WordCloudEditor config={config} onChange={setConfig} />;
       case 'qa':
+        console.log('Rendering QAEditor');
         return <QAEditor config={config} onChange={setConfig} />;
       default:
-        return <p>Unsupported activity type</p>;
+        console.log('No matching editor found for type:', type);
+        return <p>Unsupported activity type: {activityType}</p>;
     }
   };
   
   return (
-    <ModalOverlay>
-      <ModalContent>
+    <ModalOverlay onClick={handleClose}>
+      {/* Stop click propagation to prevent closing when clicking inside the modal */}
+      <ModalContent onClick={e => e.stopPropagation()}>
         <ModalHeader>
-          <ModalTitle>Edit {activityType.charAt(0).toUpperCase() + activityType.slice(1)}</ModalTitle>
-          <CloseButton onClick={onClose}>&times;</CloseButton>
+          <ModalTitle>Edit {activityType.charAt(0).toUpperCase() + activityType.slice(1)} Activity: {title}</ModalTitle>
+          <CloseButton onClick={handleClose}>&times;</CloseButton>
         </ModalHeader>
         
         <Form onSubmit={handleSave}>
@@ -471,12 +488,40 @@ const ActivityEditModal = ({ activity, onSave, onClose }) => {
           
           {renderEditor()}
           
+          <FormGroup>
+            <Label>Settings Behavior</Label>
+            <div style={{ marginTop: '8px' }}>
+              <Label style={{ fontWeight: 'normal', display: 'flex', alignItems: 'center', cursor: 'pointer', marginBottom: '8px' }}>
+                <input 
+                  type="radio" 
+                  name="mode" 
+                  value="edit" 
+                  checked={mode === 'edit'} 
+                  onChange={() => setMode('edit')} 
+                  style={{ marginRight: '8px' }}
+                />
+                Allow settings to be changed during activity creation and editing only
+              </Label>
+              <Label style={{ fontWeight: 'normal', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input 
+                  type="radio" 
+                  name="mode" 
+                  value="present" 
+                  checked={mode === 'present'} 
+                  onChange={() => setMode('present')} 
+                  style={{ marginRight: '8px' }}
+                />
+                Allow settings to be changed during presentation
+              </Label>
+            </div>
+          </FormGroup>
+          
           <ButtonGroup>
-            <Button type="button" secondary onClick={onClose}>
+            <Button type="button" $secondary onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" primary>
-              Save Changes
+            <Button type="submit" $primary onClick={(e) => { console.log('[ActivityEditModal] Save button clicked'); handleSave(e); }}>
+              Save
             </Button>
           </ButtonGroup>
         </Form>
@@ -485,4 +530,4 @@ const ActivityEditModal = ({ activity, onSave, onClose }) => {
   );
 };
 
-export default ActivityEditModal; 
+export default ActivityEditModal;
