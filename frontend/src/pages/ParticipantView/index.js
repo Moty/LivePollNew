@@ -208,9 +208,7 @@ const ParticipantView = () => {
   // TODO: Implement handlers for different activity interactions
   const handlePollSubmit = (pollId, optionIndex) => {
     if (!socket || !connected || !sessionData) return;
-    
     console.log(`Submitting poll response: Poll ${pollId}, Option ${optionIndex}`);
-    
     socket.emit('activity-response', {
       sessionId: sessionData.sessionId,
       sessionCode: sessionData.code,
@@ -218,15 +216,13 @@ const ParticipantView = () => {
       userId,
       userName,
       responseType: 'poll',
-      response: { optionIndex }
+      responseData: { selectedOption: optionIndex }
     });
   };
-  
+
   const handleQuizSubmit = (quizId, answers) => {
     if (!socket || !connected || !sessionData) return;
-    
     console.log(`Submitting quiz response: Quiz ${quizId}, Answers:`, answers);
-    
     socket.emit('activity-response', {
       sessionId: sessionData.sessionId,
       sessionCode: sessionData.code,
@@ -234,15 +230,13 @@ const ParticipantView = () => {
       userId,
       userName,
       responseType: 'quiz',
-      response: { answers }
+      responseData: { answers }
     });
   };
-  
+
   const handleWordCloudSubmit = (wordCloudId, word) => {
     if (!socket || !connected || !sessionData) return;
-    
     console.log(`Submitting word cloud response: WordCloud ${wordCloudId}, Word: ${word}`);
-    
     socket.emit('activity-response', {
       sessionId: sessionData.sessionId,
       sessionCode: sessionData.code,
@@ -250,18 +244,15 @@ const ParticipantView = () => {
       userId,
       userName,
       responseType: 'wordcloud',
-      response: { word }
+      responseData: { word }
     });
   };
-  
+
   const handleQASubmit = (qaId, question) => {
     if (!socket || !connected || !sessionData) return;
-    
     // Handle both cases where question might be a string or an object with text property
     const questionText = typeof question === 'object' ? question.text : question;
-    
     console.log(`Submitting question: QA ${qaId}, Question: ${questionText}`);
-    
     socket.emit('activity-response', {
       sessionId: sessionData.sessionId,
       sessionCode: sessionData.code,
@@ -269,20 +260,19 @@ const ParticipantView = () => {
       userId,
       userName,
       responseType: 'qa',
-      response: { question: questionText }
+      responseData: { question: questionText }
     });
   };
-  
+
   const handleQAUpvote = (qaId, questionId) => {
     if (!socket || !connected) return;
-    
     socket.emit('question-upvote', {
       sessionId: code,
       questionId,
       userId
     });
   };
-  
+
   if (loading) {
     return (
       <Container>
@@ -301,7 +291,7 @@ const ParticipantView = () => {
       </Container>
     );
   }
-  
+
   if (!sessionData) {
     return (
       <Container>
@@ -313,7 +303,7 @@ const ParticipantView = () => {
       </Container>
     );
   }
-  
+
   // TODO: Implement rendering active activity
   const renderActivity = () => {
     if (!activeActivity) {
@@ -326,7 +316,7 @@ const ParticipantView = () => {
               <path d="M18 12V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M6 8V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M18 7C15.7909 7 14 8.79086 14 11C14 13.2091 15.7909 15 18 15C20.2091 15 22 13.2091 22 11C22 8.79086 20.2091 7 18 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6 17C3.79086 17 2 15.2091 2 13C2 10.7909 3.79086 9 6 9C8.20914 9 10 10.7909 10 13C10 15.2091 8.20914 17 6 17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6 17C3.79086 17 2.05 15.2091 2.05 13C2.05 10.7909 3.79086 9 6 9C8.20914 9 10 10.7909 10 13C10 15.2091 8.20914 17 6 17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </WaitingAnimation>
           <h2>Waiting for presenter to start an activity</h2>
@@ -375,7 +365,7 @@ const ParticipantView = () => {
           <WordCloud 
             {...activity}
             isPresenter={false}
-            onSubmit={(word) => handleWordCloudSubmit(activity._id, word)}
+            onSubmit={(id, word) => handleWordCloudSubmit(id, word)}
           />
         );
       case 'qa':
@@ -396,7 +386,7 @@ const ParticipantView = () => {
         );
     }
   };
-  
+
   return (
     <Container>
       <Header>

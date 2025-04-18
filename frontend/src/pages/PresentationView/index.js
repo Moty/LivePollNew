@@ -262,6 +262,7 @@ const PresentationView = () => {
   const connectionLoopDetectorRef = useRef(null);
   const iframeRef = useRef(null);
   const modalRef = useRef();
+  const activeActivityRef = useRef(null); // New ref for activeActivity
   
   // Track loading time for UX purposes
   const loadingStartTime = useRef(Date.now());
@@ -465,11 +466,11 @@ const PresentationView = () => {
         setResponseCount(prevCount => prevCount + 1);
         
         // Only process responses for the active activity
-        if (activeActivity && data.activityId === activeActivity._id) {
+        if (activeActivityRef.current && data.activityId === activeActivityRef.current._id) {
           console.log('Updating active activity with new response');
           
           // Create a copy of the active activity
-          const updatedActivity = { ...activeActivity };
+          const updatedActivity = { ...activeActivityRef.current };
           
           // Initialize responses array if it doesn't exist
           if (!updatedActivity.responses) {
@@ -477,7 +478,7 @@ const PresentationView = () => {
           }
           
           // Add the response based on activity type
-          switch (activeActivity.type) {
+          switch (activeActivityRef.current.type) {
             case 'poll':
               // For polls, increment the vote for the selected option
               if (typeof data.response === 'number') {
@@ -547,23 +548,58 @@ const PresentationView = () => {
       // Handle activity results updates
       newSocket.on('activity-results-update', (data) => {
         console.log('Received activity results update:', data);
-        
-        // Only process updates for the active activity
-        if (activeActivity && data.activityId === activeActivity._id) {
-          console.log('Updating active activity with new results');
-          
-          // Update response count if provided
+        // If activityId is present, match it; otherwise, assume it's for the current activity
+        if (
+          (data.activityId && activeActivityRef.current && data.activityId === activeActivityRef.current._id) ||
+          (!data.activityId && activeActivityRef.current)
+        ) {
+          console.log('Updating active activity with new results (no activityId check needed)');
           if (data.totalResponses !== undefined) {
             setResponseCount(data.totalResponses);
           }
-          
-          // Update the active activity with the new responses if provided
-          if (data.responses) {
-            setActiveActivity(prevActivity => ({
-              ...prevActivity,
-              responses: data.responses
-            }));
-          }
+          // Update all relevant fields for all activity types
+          setActiveActivity(prevActivity => ({
+            ...prevActivity,
+            // For polls/quizzes/wordcloud/qa, update all possible fields from the payload
+            ...(data.responses ? { responses: data.responses } : {}),
+            ...(data.options ? { options: data.options } : {}),
+            ...(data.questions ? { questions: data.questions } : {}),
+            ...(data.title ? { title: data.title } : {}),
+            ...(data.description ? { description: data.description } : {}),
+            ...(data.question ? { question: data.question } : {}),
+            ...(data.activityType ? { type: data.activityType } : {}),
+            ...(data.extra ? data.extra : {})
+          }));
+        }
+      });
+      
+      // Handle participant join/leave events for real-time participant count
+      newSocket.on('participant-joined', (data) => {
+        console.log('Participant joined:', data);
+        // The backend should send the updated participant count
+        if (data.participantCount !== undefined) {
+          setParticipantCount(data.participantCount);
+        } else {
+          // Fallback: increment by 1 if count not provided
+          setParticipantCount((prev) => prev + 1);
+        }
+      });
+      newSocket.on('participant-left', (data) => {
+        console.log('Participant left:', data);
+        if (data.participantCount !== undefined) {
+          setParticipantCount(data.participantCount);
+        } else {
+          // Fallback: decrement by 1 if count not provided
+          setParticipantCount((prev) => Math.max(prev - 1, 0));
+        }
+      });
+      // Optionally, handle a full participant list/count update event
+      newSocket.on('participants-update', (data) => {
+        console.log('Participants update:', data);
+        if (data.participantCount !== undefined) {
+          setParticipantCount(data.participantCount);
+        } else if (Array.isArray(data.participants)) {
+          setParticipantCount(data.participants.length);
         }
       });
       
@@ -735,7 +771,47 @@ const PresentationView = () => {
       clearInterval(interval);
     };
   }, [forcePersistentConnection, isMountedRef]);
-  
+
+  // Real-time WordCloud/Activity Response Update
+  useEffect(() => {
+    if (!socket || !activeActivity) return;
+
+    // Handler for activity updates (new responses)
+    const handleActivityUpdate = (data) => {
+      console.log('[SOCKET EVENT PAYLOAD]', data); // <--- LOGGING ADDED
+      // Accept update if for current activity
+      if (data.activity && data.activity._id === activeActivity._id) {
+        setActiveActivity(prev => ({
+          ...prev,
+          ...data.activity, // in case other properties change
+          responses: data.activity.responses || []
+        }));
+      } else if (data.activityId === activeActivity._id && data.responses) {
+        setActiveActivity(prev => ({
+          ...prev,
+          responses: data.responses
+        }));
+      }
+    };
+
+    // Listen for all possible update events
+    socket.on('activity-updated', handleActivityUpdate);
+    socket.on('update-activity', handleActivityUpdate);
+    socket.on('activity-results-update', handleActivityUpdate);
+
+    // Clean up
+    return () => {
+      socket.off('activity-updated', handleActivityUpdate);
+      socket.off('update-activity', handleActivityUpdate);
+      socket.off('activity-results-update', handleActivityUpdate);
+    };
+  }, [socket, activeActivity]);
+
+  // Update the ref with latest activeActivity on every render
+  useEffect(() => {
+    activeActivityRef.current = activeActivity;
+  }, [activeActivity]);
+
   // Fetch presentation data
   const fetchPresentationData = async () => {
     console.log(`Attempting to fetch presentation ${id} at ${new Date().toISOString()}`);
@@ -1090,31 +1166,30 @@ const PresentationView = () => {
             mode="present"
           />;
       case 'wordcloud':
-          // Process word cloud data - count word frequencies
-          const wordFrequency = {};
-          safeActivity.responses?.forEach(resp => {
-            // Handle both string responses and object responses with 'word' property
-            const word = typeof resp === 'string' ? resp : (resp?.word || '');
-            if (word && typeof word === 'string') {
-              const cleanWord = word.trim().toLowerCase();
-              if (cleanWord) {
-                wordFrequency[cleanWord] = (wordFrequency[cleanWord] || 0) + 1;
-              }
+        // Process word cloud data - count word frequencies
+        const wordFrequency = {};
+        safeActivity.responses?.forEach(resp => {
+          // Handle both string responses and object responses with 'word' property
+          const word = typeof resp === 'string' ? resp : (resp?.word || '');
+          if (word && typeof word === 'string') {
+            const cleanWord = word.trim().toLowerCase();
+            if (cleanWord) {
+              wordFrequency[cleanWord] = (wordFrequency[cleanWord] || 0) + 1;
             }
-          });
-          // Convert to the format expected by the WordCloud component: [{text, value}]
-          const formattedWords = Object.keys(wordFrequency).map(word => ({
-            text: word,
-            value: wordFrequency[word]
-          }));
-          return <WordCloud 
-            isPresenter={true}
-            id={safeActivity._id}
-            title={safeActivity.title || "Word Cloud"}
-            description={safeActivity.description || safeActivity.question || "Submit words that come to mind"}
-            words={formattedWords}
-            mode="present"
-          />;
+          }
+        });
+        const formattedWords = Object.keys(wordFrequency).map(word => ({
+          text: word,
+          value: wordFrequency[word]
+        }));
+        return <WordCloud 
+          isPresenter={true}
+          id={safeActivity._id}
+          title={safeActivity.title || "Word Cloud"}
+          description={safeActivity.description || safeActivity.question || "Submit words that come to mind"}
+          words={formattedWords}
+          mode="present"
+        />;
       case 'qa':
           return <QA 
             isPresenter={true}

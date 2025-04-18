@@ -941,6 +941,67 @@ module.exports = (io) => {
             return;
           }
           
+          // Extract responseData based on activity type
+          let extractedResponseData = responseData;
+          if (session.activeActivity && session.activeActivity.type) {
+            switch (session.activeActivity.type) {
+              case 'wordcloud':
+                // Accept string or { word: ... }
+                if (typeof responseData === 'string') {
+                  extractedResponseData = responseData;
+                } else if (responseData && typeof responseData.word === 'string') {
+                  extractedResponseData = responseData.word;
+                } else {
+                  extractedResponseData = null;
+                }
+                break;
+              case 'poll':
+                // Accept { selectedOption: ... } or direct index/answer
+                if (typeof responseData === 'number') {
+                  extractedResponseData = responseData;
+                } else if (responseData && typeof responseData.selectedOption !== 'undefined') {
+                  extractedResponseData = responseData.selectedOption;
+                } else {
+                  extractedResponseData = null;
+                }
+                break;
+              case 'quiz':
+                // Accept { answer: ... } or direct answer
+                if (typeof responseData === 'string' || typeof responseData === 'number') {
+                  extractedResponseData = responseData;
+                } else if (responseData && typeof responseData.answer !== 'undefined') {
+                  extractedResponseData = responseData.answer;
+                } else {
+                  extractedResponseData = null;
+                }
+                break;
+              case 'qna':
+                // Accept { question: ..., answer: ... }
+                if (responseData && typeof responseData.answer !== 'undefined') {
+                  extractedResponseData = responseData.answer;
+                } else {
+                  extractedResponseData = responseData;
+                }
+                break;
+              default:
+                // Fallback: use as-is
+                extractedResponseData = responseData;
+            }
+          }
+
+          // Add the response to the activity ONLY if valid
+          if (extractedResponseData !== undefined && extractedResponseData !== null) {
+            if (session.activeActivity) {
+              if (!session.activeActivity.responses) {
+                session.activeActivity.responses = [];
+              }
+              session.activeActivity.responses.push(extractedResponseData);
+            }
+          } else {
+            console.warn('Attempted to push null/undefined responseData for activity', activityId, data);
+          }
+          console.log('Pushed to responses:', extractedResponseData, 'Current responses:', session.activeActivity ? session.activeActivity.responses : []);
+
           // Store the response in the session
           if (!session.responses) session.responses = [];
           
@@ -949,7 +1010,7 @@ module.exports = (io) => {
             activityId,
             participantId: socket.id,
             userName: socket.data?.userName || 'Anonymous',
-            responseData,
+            responseData: extractedResponseData,
             timestamp: new Date().toISOString()
           };
           
@@ -960,25 +1021,12 @@ module.exports = (io) => {
           
           console.log(`Added response to session ${session.id}, total responses: ${session.totalResponses}`);
           
-          // If the activity is still active, update its responses
-          if (session.activeActivity && (session.activeActivity.id === activityId || session.activeActivity._id === activityId)) {
-            // Initialize responses array if it doesn't exist
-            if (!session.activeActivity.responses) {
-              session.activeActivity.responses = [];
-            }
-            
-            // Add the response to the activity
-            session.activeActivity.responses.push(responseData);
-            
-            console.log(`Updated active activity ${activityId} with new response`);
-          }
-          
           // Forward response to presenter
           if (session.presenterSocketId) {
             console.log(`Forwarding response to presenter ${session.presenterSocketId}`);
             io.to(session.presenterSocketId).emit('response-received', {
               activityId,
-              response: responseData,
+              response: extractedResponseData,
               participantId: socket.id,
               participantName: socket.data?.userName || 'Anonymous'
             });
