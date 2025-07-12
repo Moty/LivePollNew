@@ -220,6 +220,95 @@ const LoadingSpinner = styled.div`
 
 const maxConnectionAttempts = 3; // Maximum connection attempts before forcing a cooldown
 
+// Fullscreen Styles and X Icon
+const FullscreenOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: ${({ theme }) => theme.colors.background.primary};
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 100vw;
+`;
+
+const FullscreenContent = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+`;
+
+const FullscreenExitButton = styled.button`
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &:hover {
+    background: rgba(0,0,0,0.8);
+  }
+`;
+
+// Floating QR/URL UI for Fullscreen
+const FloatingQRContainer = styled.div`
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.8);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 12px 16px 8px 16px;
+  transition: opacity 0.2s;
+`;
+
+const FloatingQRHideButton = styled.button`
+  margin-top: 4px;
+  background: none;
+  border: none;
+  color: #444;
+  font-size: 1.1rem;
+  cursor: pointer;
+  opacity: 0.7;
+  &:hover { opacity: 1; }
+`;
+
+const FloatingQRShowButton = styled.button`
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  z-index: 10002;
+  background: rgba(255,255,255,0.8);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #222;
+  font-size: 1.3rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+`;
+
 /**
  * PresentationView component for presenter mode
  * Allows control of activities and viewing live results
@@ -1034,7 +1123,7 @@ const PresentationView = () => {
       showError(`Failed to activate activity: ${error.message}`);
     });
   }, [connected, socket, sessionId, sessionCode, sessionReady, sessionCreationAttempted, id, success, showError]);
-  
+
   // End current activity
   const handleEndActivity = useCallback(() => {
     if (!activeActivity) return;
@@ -1152,6 +1241,8 @@ const PresentationView = () => {
               option: safeActivity.options[index] || `Option ${index+1}`,
               votes: Array.isArray(response) ? response.length : (typeof response === 'number' ? response : 0)
             }))}
+            chartType={safeActivity.chartType || 'bar'}
+            colorScheme={safeActivity.colorScheme || 'default'}
             showResults={true}
             mode="present"
           />;
@@ -1249,6 +1340,7 @@ const PresentationView = () => {
       connectionLoopDetectorRef.current = setTimeout(() => {
         if (isMountedRef.current && !sessionCreatedRef.current) {
           console.log('Attempting connection after cooldown');
+          
           // Use socket.connect() directly instead of setupSocketConnection
           if (socketRef.current) {
             console.log('Reconnecting existing socket');
@@ -1270,6 +1362,36 @@ const PresentationView = () => {
     return false; // No loop detected
   };
   
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const mainContentRef = useRef(null);
+
+  // Fullscreen API handlers
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        if (document.fullscreenElement) document.exitFullscreen();
+      }
+    }
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isFullscreen]);
+
+  // Enter/exit fullscreen when state changes
+  useEffect(() => {
+    if (isFullscreen && mainContentRef.current) {
+      if (mainContentRef.current.requestFullscreen) {
+        mainContentRef.current.requestFullscreen();
+      }
+    } else if (!isFullscreen && document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+  }, [isFullscreen]);
+
+  // Fullscreen QR/URL state
+  const [showFloatingQR, setShowFloatingQR] = useState(true);
+
   // Render session initialization UI with options to retry or bypass
   const renderSessionInitializationUI = () => (
     <div className="session-initializing" style={{
@@ -1455,7 +1577,7 @@ const PresentationView = () => {
   // Rest of the component remains unchanged
     return (
     <Container>
-      <Sidebar>
+      <Sidebar style={{ display: isFullscreen ? 'none' : undefined }}>
         <SidebarSection>
           <SectionTitle>Session</SectionTitle>
           <SessionInfo>
@@ -1682,98 +1804,144 @@ const PresentationView = () => {
         </SidebarSection>
       </Sidebar>
       
-      <MainContent>
-        {activeActivity ? (
+      <MainContent ref={mainContentRef} style={{ padding: isFullscreen ? 0 : undefined, borderRadius: isFullscreen ? 0 : undefined, minHeight: isFullscreen ? '100vh' : undefined, background: isFullscreen ? 'transparent' : undefined }}>
+        {isFullscreen && (
+          <FullscreenOverlay>
+            <FullscreenExitButton
+              aria-label="Exit Fullscreen"
+              onClick={() => setIsFullscreen(false)}
+            >
+              &#10005;
+            </FullscreenExitButton>
+            {/* Floating QR and URL */}
+            {showFloatingQR ? (
+              <FloatingQRContainer>
+                <QRCode value={window.location.origin + '/join/' + (presentation?.sessionCode || '')} size={72} />
+                <div style={{ fontSize: '0.8rem', marginTop: 8, wordBreak: 'break-all', color: '#333', textAlign: 'center', maxWidth: 180 }}>
+                  {window.location.origin + '/join/' + (presentation?.sessionCode || '')}
+                </div>
+                <FloatingQRHideButton title="Hide QR and URL" onClick={() => setShowFloatingQR(false)}>
+                  &#128065; Hide
+                </FloatingQRHideButton>
+              </FloatingQRContainer>
+            ) : (
+              <FloatingQRShowButton title="Show QR and URL" onClick={() => setShowFloatingQR(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </FloatingQRShowButton>
+            )}
+            <FullscreenContent>
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '100%', height: '100%' }}>
+                  {/* Centered and responsive results container */}
+                  <ResultsContainer style={{ minHeight: '90vh', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {renderActivityResults()}
+                  </ResultsContainer>
+                </div>
+              </div>
+            </FullscreenContent>
+          </FullscreenOverlay>
+        )}
+        {!isFullscreen && (
           <>
-            <ActionBar>
-              <ActivityTitle>
-                {activeActivity.title || activeActivity.question}
-              </ActivityTitle>
-              <ButtonGroup>
-                <ExportButton
-                  type={activeActivity.type}
-                  itemId={activeActivity._id}
-                  presentationId={id}
-                  disabled={!connected && connectionAttempts < 3}
-                />
-                <Button
-                  $variant="danger"
-                  onClick={handleEndActivity}
-                >
-                  End Activity
-                </Button>
-              </ButtonGroup>
-            </ActionBar>
-            
-            <StatsPanel>
-            <StatItem>
-              <StatValue>{participantCount}</StatValue>
-              <StatLabel>Participants</StatLabel>
-            </StatItem>
-            <StatItem>
-              <StatValue>{responseCount}</StatValue>
-              <StatLabel>Responses</StatLabel>
-            </StatItem>
-              <StatItem>
-                <StatValue>
-                  {participantCount > 0 
-                    ? Math.round((responseCount / participantCount) * 100)
-                    : 0}%
-                </StatValue>
-                <StatLabel>Response Rate</StatLabel>
-              </StatItem>
-            </StatsPanel>
-            
-            <ResultsContainer>
-              {renderActivityResults()}
-            </ResultsContainer>
-          </>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '60%',
-            padding: '2rem',
-            textAlign: 'center'
-          }}>
-            <h2>Select an activity to start</h2>
-            <p>No activity is currently active. Select an activity from the sidebar to begin.</p>
-            {!connected && connectionAttempts >= 3 && (
+            {activeActivity ? (
+              <>
+                <ActionBar>
+                  <ActivityTitle>
+                    {activeActivity.title || activeActivity.question}
+                  </ActivityTitle>
+                  <ButtonGroup>
+                    <ExportButton
+                      type={activeActivity.type}
+                      itemId={activeActivity._id}
+                      presentationId={id}
+                      disabled={!connected && connectionAttempts < 3}
+                    />
+                    <Button
+                      $variant="danger"
+                      onClick={handleEndActivity}
+                    >
+                      End Activity
+                    </Button>
+                    {/* Fullscreen Toggle Button */}
+                    <Button
+                      $variant="primary"
+                      onClick={() => setIsFullscreen(true)}
+                      aria-label="Enter Fullscreen"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-16h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3"/></svg>
+                    </Button>
+                  </ButtonGroup>
+                </ActionBar>
+                <StatsPanel>
+                  <StatItem>
+                    <StatValue>{participantCount}</StatValue>
+                    <StatLabel>Participants</StatLabel>
+                  </StatItem>
+                  <StatItem>
+                    <StatValue>{responseCount}</StatValue>
+                    <StatLabel>Responses</StatLabel>
+                  </StatItem>
+                  <StatItem>
+                    <StatValue>
+                      {participantCount > 0
+                        ? Math.round((responseCount / participantCount) * 100)
+                        : 0}%
+                    </StatValue>
+                    <StatLabel>Response Rate</StatLabel>
+                  </StatItem>
+                </StatsPanel>
+                <ResultsContainer>
+                  {renderActivityResults()}
+                </ResultsContainer>
+              </>
+            ) : (
               <div style={{
-                marginTop: '2rem',
-                padding: '1rem',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '8px',
-                maxWidth: '550px'
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '60%',
+                padding: '2rem',
+                textAlign: 'center'
               }}>
-                <h3 style={{ color: '#f39c12' }}>Connection Issues Detected</h3>
-                <p>We're having trouble connecting to the server. Please check your internet connection.</p>
-                <p>Try reconnecting or refreshing the page.</p>
-                <button 
-                  style={{
-                    marginTop: '1rem',
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#3498db',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => {
-                    if (socket) {
-                      socket.connect();
-                      console.log('Manual connection attempt initiated');
-                      success('Reconnection attempt initiated');
-                    }
-                  }}
-                >
-                  Try Reconnecting
-                </button>
+                <h2>Select an activity to start</h2>
+                <p>No activity is currently active. Select an activity from the sidebar to begin.</p>
+                {!connected && connectionAttempts >= 3 && (
+                  <div style={{
+                    marginTop: '2rem',
+                    padding: '1rem',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    maxWidth: '550px'
+                  }}>
+                    <h3 style={{ color: '#f39c12' }}>Connection Issues Detected</h3>
+                    <p>We're having trouble connecting to the server. Please check your internet connection.</p>
+                    <p>Try reconnecting or refreshing the page.</p>
+                    <button
+                      style={{
+                        marginTop: '1rem',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#3498db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        if (socket) {
+                          socket.connect();
+                          console.log('Manual connection attempt initiated');
+                          success('Reconnection attempt initiated');
+                        }
+                      }}
+                    >
+                      Try Reconnecting
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </MainContent>
     </Container>

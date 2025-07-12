@@ -184,7 +184,9 @@ const PreviewButton = styled.button`
  * @param {string} props.chartType - Chart type to display results (bar, pie, doughnut, horizontalBar)
  * @param {Object} props.colorScheme - Custom color scheme for the chart
  * @param {Object} props.animation - Animation settings for the chart
- * @param {function} props.onVote - Function called when a vote is submitted
+ * @param {function} props.onSubmit - Function called when a vote is submitted (new participant flow)
+ * @param {function} props.onVote - Function called when a vote is submitted (legacy)
+ * @param {function} props.onSettingsChange - Function called when settings are changed
  * @param {string} props.mode - Mode of the poll (present or edit)
  */
 const Poll = ({
@@ -197,6 +199,7 @@ const Poll = ({
   chartType: initialChartType = 'bar',
   colorScheme: initialColorScheme = 'default',
   animation: initialAnimation = { duration: 1000, easing: 'easeOutQuad', delay: 0 },
+  onSubmit,
   onVote,
   onSettingsChange,
   mode = 'present',
@@ -232,14 +235,16 @@ const Poll = ({
   const handleSubmit = () => {
     if (selectedOption !== null) {
       setHasVoted(true);
-      
-      if (onVote) {
+      // Updated: Use onSubmit prop for participant vote submission
+      if (onSubmit) {
+        onSubmit(selectedOption);
+      } else if (onVote) {
+        // Legacy fallback
         onVote({
           pollId: id,
           optionIndex: selectedOption
         });
       }
-      
       // Create local results before server response
       const newResults = [...pollResults];
       if (newResults[selectedOption]) {
