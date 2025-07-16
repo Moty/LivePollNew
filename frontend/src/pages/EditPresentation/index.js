@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Grid, List, ListItemButton, ListItemText, ListItemSecondaryAction, IconButton, Button, Typography, Divider, Paper, CircularProgress, MenuItem, Select, FormControl, InputLabel, AppBar, Toolbar, Drawer, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,9 +28,8 @@ const EditPresentation = () => {
   const [activities, setActivities] = useState([]);
   const [selectedActivityId, setSelectedActivityId] = useState(null);
 
-  // Fetch presentation data
-  useEffect(() => {
-    const fetchPresentation = async () => {
+  // --- Fetch presentation data ---
+  const fetchPresentation = useCallback(async () => {
       try {
         setLoading(true);
         const response = await apiService.getPresentation(id);
@@ -51,9 +50,11 @@ const EditPresentation = () => {
         showError('Failed to fetch presentation: ' + (err.message || 'Unknown error'));
         navigate('/dashboard');
       }
-    };
+    }, [id, navigate, showError]);
+
+  useEffect(() => {
     if (id) fetchPresentation(); else navigate('/dashboard');
-  }, [id, navigate, showError]);
+  }, [id, fetchPresentation, navigate]);
 
   // Add Activity
   const handleAddActivity = () => {
@@ -109,6 +110,9 @@ const EditPresentation = () => {
   const saveTimeout = useRef(null);
   const lastSavedActivities = useRef([]);
 
+  // Helper to transform activities for server
+  const toServerActivities = acts => acts.map(({ id, _id, ...rest }) => ({ _id: _id || id, ...rest }));
+
   // Save activities to backend (debounced)
   useEffect(() => {
     if (activities.length === 0 || loading) return;
@@ -120,7 +124,7 @@ const EditPresentation = () => {
       try {
         await apiService.updatePresentation(id, {
           ...formValues,
-          activities: activities.map(({ id, ...rest }) => ({ id, ...rest })),
+          activities: activities.map(({ id, _id, ...rest }) => ({ _id: _id || id, ...rest })),
         });
         lastSavedActivities.current = JSON.parse(JSON.stringify(activities));
         setSaving(false);
@@ -153,6 +157,27 @@ const EditPresentation = () => {
   };
 
   // --- Sticky header/footer ---
+  const handleSavePresentation = async () => {
+    try {
+      setSaving(true);
+      await apiService.updatePresentation(id, {
+        ...formValues,
+        activities: activities.map(({ id: aId, _id, ...rest }) => ({ _id: _id || aId, ...rest })),
+      });
+      lastSavedActivities.current = JSON.parse(JSON.stringify(activities));
+      setSaving(false);
+      success('Presentation saved');
+    } catch (err) {
+      setSaving(false);
+      showError('Failed to save presentation: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const handleCancelChanges = () => {
+    if (loading) return;
+    fetchPresentation();
+  };
+
   const Header = () => (
     <AppBar position="sticky" color="primary" sx={{ zIndex: 1201 }}>
       <Toolbar>
@@ -164,6 +189,14 @@ const EditPresentation = () => {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Edit Presentation
         </Typography>
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        <Button variant="outlined" color="inherit" onClick={handleCancelChanges} disabled={loading || saving}>
+          Cancel
+        </Button>
+        <Button variant="contained" color="secondary" onClick={handleSavePresentation} disabled={loading || saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
+      </Box>
       </Toolbar>
     </AppBar>
   );

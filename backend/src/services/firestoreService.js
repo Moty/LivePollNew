@@ -126,17 +126,13 @@ const createPresentation = async (data) => {
     if (data.activities && data.activities.length > 0) {
       const activities = data.activities.map((activity, index) => {
         return {
+          ...activity, // preserve all custom config fields
           type: activity.type || 'poll',
           title: activity.title || `Activity ${index + 1}`,
-          question: activity.question || '',
-          options: activity.options || [],
-          questions: activity.questions || [],
-          maxSubmissions: activity.maxSubmissions || 3,
-          isModerated: activity.isModerated || false,
           orderIndex: index,
           createdAt: now,
           updatedAt: now,
-          responses: []
+          responses: activity.responses || []
         };
       });
       
@@ -201,13 +197,9 @@ const updatePresentation = async (id, data) => {
           .doc();
         
         batch.set(activityRef, {
+          ...activity, // preserve all custom config fields
           type: activity.type || 'poll',
           title: activity.title || `Activity ${index + 1}`,
-          question: activity.question || '',
-          options: activity.options || [],
-          questions: activity.questions || [],
-          maxSubmissions: activity.maxSubmissions || 3,
-          isModerated: activity.isModerated || false,
           orderIndex: index,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),

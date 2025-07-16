@@ -1235,14 +1235,13 @@ const PresentationView = () => {
           return <Poll 
             isPresenter={true} 
             id={safeActivity._id}
+            {...activeActivity}
             question={safeActivity.question || safeActivity.title || "Poll Question"}
             options={safeActivity.options}
             results={safeActivity.responses?.map((response, index) => ({
               option: safeActivity.options[index] || `Option ${index+1}`,
               votes: Array.isArray(response) ? response.length : (typeof response === 'number' ? response : 0)
             }))}
-            chartType={safeActivity.chartType || 'bar'}
-            colorScheme={safeActivity.colorScheme || 'default'}
             showResults={true}
             mode="present"
           />;
