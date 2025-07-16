@@ -1218,6 +1218,36 @@ const PresentationView = () => {
     if (!activeActivity) return null;
     
     // Ensure activity has proper structure for rendering
+    // Pre-compute poll results data to handle different response formats
+    let pollResultsData = [];
+    if (activeActivity.type === 'poll') {
+      const { options = [], responses = [] } = activeActivity;
+      if (responses.length > 0 && typeof responses[0] === 'number') {
+        // responses is an array of option indices (e.g. [0,1,2,2])
+        const counts = Array(options.length).fill(0);
+        responses.forEach(idx => {
+          if (typeof idx === 'number' && idx >= 0 && idx < counts.length) {
+            counts[idx] += 1;
+          }
+        });
+        pollResultsData = options.map((opt, i) => ({
+          option: opt || `Option ${i + 1}`,
+          votes: counts[i]
+        }));
+      } else {
+        // Fallback to legacy aggregated format (array per option)
+        pollResultsData = responses.map((resp, i) => ({
+          option: options[i] || `Option ${i + 1}`,
+          votes: Array.isArray(resp) ? resp.length : (typeof resp === 'number' ? resp : 0)
+        }));
+        // Ensure we at least have an entry for each option
+        if (pollResultsData.length < options.length) {
+          for (let i = pollResultsData.length; i < options.length; i++) {
+            pollResultsData.push({ option: options[i] || `Option ${i + 1}`, votes: 0 });
+          }
+        }
+      }
+    }
     const safeActivity = {
       ...activeActivity,
       options: activeActivity.options || [],
@@ -1233,21 +1263,20 @@ const PresentationView = () => {
       switch (activeActivity.type) {
       case 'poll':
           return <Poll 
-            isPresenter={true} 
+             key={safeActivity._id || safeActivity.id}
+             isPresenter={true} 
             id={safeActivity._id}
             {...activeActivity}
             question={safeActivity.question || safeActivity.title || "Poll Question"}
             options={safeActivity.options}
-            results={safeActivity.responses?.map((response, index) => ({
-              option: safeActivity.options[index] || `Option ${index+1}`,
-              votes: Array.isArray(response) ? response.length : (typeof response === 'number' ? response : 0)
-            }))}
+            results={pollResultsData}
             showResults={true}
             mode="present"
           />;
       case 'quiz':
           return <Quiz 
-            isPresenter={true}
+             key={safeActivity._id || safeActivity.id}
+             isPresenter={true}
             id={safeActivity._id}
             title={safeActivity.title || "Quiz"} 
             questions={safeActivity.questions}
@@ -1273,7 +1302,8 @@ const PresentationView = () => {
           value: wordFrequency[word]
         }));
         return <WordCloud 
-          isPresenter={true}
+           key={safeActivity._id || safeActivity.id}
+           isPresenter={true}
           id={safeActivity._id}
           title={safeActivity.title || "Word Cloud"}
           description={safeActivity.description || safeActivity.question || "Submit words that come to mind"}
@@ -1282,7 +1312,8 @@ const PresentationView = () => {
         />;
       case 'qa':
           return <QA 
-            isPresenter={true}
+             key={safeActivity._id || safeActivity.id}
+             isPresenter={true}
             id={safeActivity._id}
             title={safeActivity.title || "Q&A"}
             questions={safeActivity.responses?.map(q => (
