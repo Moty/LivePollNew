@@ -3,44 +3,79 @@
  * Manages connections and events for features like word clouds, polls, quizzes, Q&A
  */
 
+const logger = require('../utils/logger');
+const {
+  generateUniqueSessionCode,
+  isValidSessionCode,
+  SocketRateLimiter,
+  validateSocketInput
+} = require('../utils/sessionUtils');
+
 module.exports = (io) => {
   // Track active sessions
   const activeSessions = new Map();
-  
+
   // Track connected clients
   const connectedClients = new Map();
-  
+
   // Session codes map (for easy lookup by code)
   const sessionCodes = new Map();
-  
-  // Keep a history of recent sessions for debugging
+
+  // Keep a history of recent sessions for debugging (bounded)
   const recentSessions = [];
-  
-  // Log setup
-  console.log('Socket.IO service initialized');
-  
-  // Generate a random session code
+  const MAX_RECENT_SESSIONS = 100;
+
+  // Rate limiters for different event types
+  const rateLimiters = {
+    connection: new SocketRateLimiter({ windowMs: 60000, maxRequests: 30 }),
+    sessionJoin: new SocketRateLimiter({ windowMs: 60000, maxRequests: 10 }),
+    activityResponse: new SocketRateLimiter({ windowMs: 10000, maxRequests: 20 }),
+    general: new SocketRateLimiter({ windowMs: 60000, maxRequests: 100 })
+  };
+
+  logger.info('Socket.IO service initialized');
+
+  // Generate a secure session code
   const generateSessionCode = () => {
-    let code = '';
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    const code = generateUniqueSessionCode(sessionCodes);
+    if (!code) {
+      // Fallback to timestamp-based code if all else fails
+      return Date.now().toString(36).toUpperCase().slice(-8);
     }
     return code;
   };
-  
+
   // Helper function to clean up inactive sessions
   const cleanupInactiveSessions = () => {
     const now = Date.now();
+    let cleanedCount = 0;
+
     for (const [sessionId, session] of activeSessions.entries()) {
-      if (now - session.lastActivity > 24 * 60 * 60 * 1000) { // 24 hours
+      // Use lastActive instead of lastActivity for consistency
+      const lastActive = session.lastActive || session.lastActivity || session.createdAt;
+      if (now - lastActive > 24 * 60 * 60 * 1000) { // 24 hours
+        // Also clean up the session code
+        if (session.code) {
+          sessionCodes.delete(session.code);
+        }
         activeSessions.delete(sessionId);
+        cleanedCount++;
       }
     }
+
+    if (cleanedCount > 0) {
+      logger.info(`Cleaned up ${cleanedCount} inactive sessions`);
+    }
   };
-  
+
   // Run cleanup every hour
-  setInterval(cleanupInactiveSessions, 60 * 60 * 1000);
+  const cleanupInterval = setInterval(cleanupInactiveSessions, 60 * 60 * 1000);
+
+  // Cleanup on module unload
+  process.on('beforeExit', () => {
+    clearInterval(cleanupInterval);
+    Object.values(rateLimiters).forEach(limiter => limiter.destroy());
+  });
   
   // Helper function to find a session by ID or code
   const findSessionByIdOrCode = (sessionId, sessionCode) => {
@@ -63,12 +98,28 @@ module.exports = (io) => {
     try {
       const { presentationId, role, sessionCode } = socket.handshake.query;
       const clientIp = socket.handshake.address;
-      
-      console.log(`New client connected: ${socket.id} from ${clientIp}`);
-      console.log(`Connection info: presentation=${presentationId}, role=${role}, sessionCode=${sessionCode}`);
-      
+
+      // Rate limit connections per IP
+      const connectionCheck = rateLimiters.connection.check(clientIp, 'connection');
+      if (!connectionCheck.allowed) {
+        logger.warn(`Rate limit exceeded for connection from ${clientIp}`);
+        socket.emit('session-error', {
+          code: 'RATE_LIMITED',
+          message: 'Too many connection attempts. Please try again later.'
+        });
+        socket.disconnect(true);
+        return;
+      }
+
+      logger.debug(`New client connected: ${socket.id}`, {
+        ip: clientIp,
+        presentationId,
+        role,
+        sessionCode
+      });
+
       socket.join('global'); // All connected clients join this room
-      
+
       // Connection credentials/info for reconnection
       const socketInfo = {
         id: socket.id,
@@ -78,12 +129,12 @@ module.exports = (io) => {
         connectedAt: Date.now(),
         ip: clientIp
       };
-      
+
       // Track the client
       connectedClients.set(socket.id, socketInfo);
-      
-      // Keep a log of recent sessions for debugging
-      if (recentSessions.length >= 20) {
+
+      // Keep a bounded log of recent sessions for debugging
+      if (recentSessions.length >= MAX_RECENT_SESSIONS) {
         recentSessions.shift(); // Remove oldest
       }
       

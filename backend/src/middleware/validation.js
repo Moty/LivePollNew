@@ -133,27 +133,98 @@ const validateQAData = (qaData) => {
   return { error: false };
 };
 
+// Import content filter
+const contentFilter = require('../utils/contentFilter');
+
 /**
  * Filters inappropriate words from submissions
  * @param {string} text - Text to filter
  * @returns {string} Filtered text
  */
 const filterInappropriateContent = (text) => {
-  // TODO: Implement inappropriate content filtering
-  // This is a placeholder - in a real app, use a proper content filtering library
-  
-  const inappropriateWords = [
-    'badword1', 'badword2', 'badword3',
-    // Add more inappropriate words as needed
-  ];
-  
-  let filteredText = text;
-  inappropriateWords.forEach(word => {
-    const regex = new RegExp(`\\b${word}\\b`, 'gi');
-    filteredText = filteredText.replace(regex, '****');
+  return contentFilter.filter(text);
+};
+
+/**
+ * Check if content is appropriate for submission
+ * @param {string} text - Text to check
+ * @returns {Object} - { appropriate: boolean, reason?: string }
+ */
+const isContentAppropriate = (text) => {
+  return contentFilter.isAppropriate(text);
+};
+
+/**
+ * Validate user-submitted content
+ * @param {string} text - Text to validate
+ * @param {Object} options - Validation options
+ * @returns {Object} - { valid: boolean, cleaned?: string, error?: string }
+ */
+const validateContent = (text, options = {}) => {
+  return contentFilter.validate(text, options);
+};
+
+/**
+ * Middleware to validate word cloud submissions
+ */
+const validateWordCloudSubmission = (req, res, next) => {
+  const { word } = req.body;
+
+  const validation = contentFilter.validate(word, {
+    maxLength: 50,
+    minLength: 1
   });
-  
-  return filteredText;
+
+  if (!validation.valid) {
+    return res.status(400).json({
+      error: true,
+      message: validation.error
+    });
+  }
+
+  req.body.word = validation.cleaned;
+  next();
+};
+
+/**
+ * Middleware to validate Q&A submissions
+ */
+const validateQASubmission = (req, res, next) => {
+  const { question, answer } = req.body;
+
+  if (question) {
+    const validation = contentFilter.validate(question, {
+      maxLength: 500,
+      minLength: 5
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: true,
+        message: `Question: ${validation.error}`
+      });
+    }
+
+    req.body.question = validation.cleaned;
+  }
+
+  if (answer) {
+    const validation = contentFilter.validate(answer, {
+      maxLength: 1000,
+      minLength: 1
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: true,
+        message: `Answer: ${validation.error}`
+      });
+    }
+
+    req.body.answer = validation.cleaned;
+  }
+
+  next();
 };
 
 module.exports = {
@@ -164,5 +235,10 @@ module.exports = {
   validateQuizData,
   validateWordCloudData,
   validateQAData,
-  filterInappropriateContent
+  filterInappropriateContent,
+  isContentAppropriate,
+  validateContent,
+  validateWordCloudSubmission,
+  validateQASubmission,
+  contentFilter
 };

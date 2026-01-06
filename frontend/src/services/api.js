@@ -1,23 +1,20 @@
 import axios from 'axios';
 
-// Create a development token for local testing
-const createDevToken = () => {
-  // This is just a mock token for development - would be properly signed in production
-  return 'dev-token-123456';
-};
-
-// Check if we're in development mode
-const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+// Check if we're in development mode with auth bypass enabled
+const isDevAuthBypass = process.env.NODE_ENV === 'development' &&
+                        process.env.REACT_APP_ALLOW_DEV_AUTH_BYPASS === 'true';
 
 // Helper function to handle API errors consistently
 const handleApiError = (error) => {
-  // Log the error details for debugging
-  if (error.response) {
-    console.error(`API Error (${error.response.status}):`, error.response.data);
-  } else if (error.request) {
-    console.error('API No Response Error:', error.request);
-  } else {
-    console.error('API Request Error:', error.message);
+  // Only log in development to avoid console noise in production
+  if (process.env.NODE_ENV === 'development') {
+    if (error.response) {
+      console.error(`API Error (${error.response.status}):`, error.response.data);
+    } else if (error.request) {
+      console.error('API No Response Error:', error.request);
+    } else {
+      console.error('API Request Error:', error.message);
+    }
   }
 };
 
@@ -33,13 +30,7 @@ const api = axios.create({
 // Request interceptor for adding auth token
 api.interceptors.request.use(
   (config) => {
-    // For development, always add a dev token
-    if (isDevelopment) {
-      config.headers.Authorization = `Bearer ${createDevToken()}`;
-      return config;
-    }
-
-    // For production, use stored token
+    // Get token from localStorage (set by AuthContext)
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -55,28 +46,29 @@ api.interceptors.response.use(
   (error) => {
     // Handle common errors
     if (error.response) {
-      // Server responded with a status code outside of 2xx
-      console.error('API response error:', error.response.status, error.response.data);
-      
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('API response error:', error.response.status, error.response.data);
+      }
+
       // Handle auth errors
       if (error.response.status === 401) {
-        if (!isDevelopment) {
-          // Unauthorized in production, clear auth data
+        // Clear auth data on 401 (unless dev bypass is enabled)
+        if (!isDevAuthBypass) {
           localStorage.removeItem('auth_token');
-          // You might want to redirect to login page here
-        } else {
-          // In development, log auth errors but don't clear token
-          console.warn('Development mode: Authentication error occurred but continuing');
+          localStorage.removeItem('user');
+          // Optionally redirect to login
+          // window.location.href = '/login';
         }
       }
-    } else if (error.request) {
+    } else if (error.request && process.env.NODE_ENV === 'development') {
       // The request was made but no response was received
       console.error('API no response error:', error.request);
-    } else {
+    } else if (process.env.NODE_ENV === 'development') {
       // Something else happened in making the request
       console.error('API request error:', error.message);
     }
-    
+
     return Promise.reject(error);
   }
 );
