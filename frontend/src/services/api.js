@@ -160,6 +160,16 @@ const apiService = {
     }
   },
   
+  // Sessions
+  // -------------------------
+  createSession: (presentationId, payload = {}) => api.post(`/presentations/${presentationId}/sessions`, payload),
+  listSessions: (presentationId) => api.get(`/presentations/${presentationId}/sessions`),
+  getSessionResults: (sessionId, pollId = null, asCsv = false) => {
+    const headers = asCsv ? { Accept: 'text/csv' } : {};
+    const params = pollId ? { pollId } : {};
+    return api.get(`/sessions/${sessionId}/results`, { headers, params, responseType: asCsv ? 'blob' : 'json' });
+  },
+
   // Polls
   getPolls: () => api.get('/polls'),
   getPoll: (id) => api.get(`/polls/${id}`),

@@ -7,26 +7,37 @@
 | Technology | Purpose | Version |
 |------------|---------|---------|
 | React | UI library | ^18.2.0 |
-| React Router | Client-side routing | ^6.4.0 |
-| Styled Components | CSS-in-JS styling | ^5.3.6 |
-| Socket.IO Client | Real-time communication client | ^4.5.3 |
-| Chart.js | Data visualization | ^4.0.0 |
-| React QR Code | QR code generation | ^3.1.0 |
-| Axios | HTTP client | ^1.1.3 |
-| d3 | Data visualization | ^7.4.4 |
-| d3-cloud | Word cloud generation | ^2.0.0 |
+| React Router | Client-side routing | ^6.20.0 |
+| Styled Components | CSS-in-JS styling | ^6.1.15 |
+| Socket.IO Client | Real-time communication client | ^4.8.1 |
+| Chart.js | Data visualization | ^4.4.0 |
+| React Chart.js 2 | React wrapper for Chart.js | ^5.2.0 |
+| React QR Code | QR code generation | ^2.0.15 |
+| Axios | HTTP client | ^1.6.2 |
+| d3 | Data visualization | ^7.8.5 |
+| d3-cloud | Word cloud generation | ^1.2.7 |
+| Material-UI | UI component library | ^7.0.2 |
+| Formik | Form handling | ^2.4.5 |
+| Yup | Schema validation | ^1.6.1 |
+| React Beautiful DnD | Drag and drop | ^13.1.1 |
 
 ### Backend Technologies
 
 | Technology | Purpose | Version |
 |------------|---------|---------|
 | Node.js | JavaScript runtime | ^16.x |
-| Express | Web framework | ^4.18.1 |
-| Socket.IO | Real-time communication server | ^4.5.3 |
+| Express | Web framework | ^4.21.2 |
+| Socket.IO | Real-time communication server | ^4.8.1 |
 | PostgreSQL | Relational database | ^14.x |
-| Firebase/Firestore | NoSQL database (alternative) | ^9.x |
-| JWT | Authentication | ^9.0.0 |
-| Bcrypt | Password hashing | ^5.0.1 |
+| Firebase/Firestore | NoSQL database (alternative) | ^10.14.1 |
+| Firebase Admin | Server-side Firebase SDK | ^12.7.0 |
+| JWT | Authentication | ^9.0.2 |
+| CORS | Cross-origin resource sharing | ^2.8.5 |
+| Helmet | Security middleware | ^8.0.0 |
+| Morgan | HTTP request logger | ^1.10.0 |
+| Express Rate Limit | Rate limiting middleware | ^7.5.0 |
+| Express Validator | Input validation | ^7.2.1 |
+| Compression | Response compression | ^1.8.0 |
 
 ## Development Environment Setup
 

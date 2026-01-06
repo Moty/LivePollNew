@@ -927,7 +927,7 @@ module.exports = (io) => {
       });
       
       // Add a new handler for participant activity responses
-      socket.on('activity-response', (data, callback) => {
+      socket.on('activity-response', async (data, callback) => {
         try {
           const { sessionId, sessionCode, activityId, responseData } = data;
           console.log(`Received activity-response for session ${sessionId || sessionCode}, activity ${activityId}:`, responseData);
@@ -1020,6 +1020,27 @@ module.exports = (io) => {
           session.lastActive = Date.now();
           
           console.log(`Added response to session ${session.id}, total responses: ${session.totalResponses}`);
+          
+          // **CRITICAL FIX**: Persist poll responses to Firestore for session-based retrieval
+          if (session.activeActivity && session.activeActivity.type === 'poll' && extractedResponseData !== null && extractedResponseData !== undefined) {
+            try {
+              const sessionService = require('./sessionService');
+              console.log(`[SOCKET DEBUG] Persisting poll response to Firestore: sessionId=${session.id}, pollId=${activityId}, optionIndex=${extractedResponseData}`);
+              
+              // Call sessionService to persist the response to Firestore
+              await sessionService.addPollResponse(
+                session.id,
+                activityId,
+                extractedResponseData,
+                socket.id // Use socket ID as user ID
+              );
+              
+              console.log(`[SOCKET DEBUG] Successfully persisted poll response to Firestore`);
+            } catch (firestoreError) {
+              console.error(`[SOCKET DEBUG] Failed to persist poll response to Firestore:`, firestoreError);
+              // Don't fail the entire response flow if Firestore save fails
+            }
+          }
           
           // Forward response to presenter
           if (session.presenterSocketId) {

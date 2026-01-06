@@ -59,12 +59,12 @@ const OptionsGrid = styled.div`
 `;
 
 const OptionButton = styled.button`
-  background-color: ${({ theme, selected }) => 
-    selected ? theme.colors.primary : theme.colors.background.secondary};
-  color: ${({ theme, selected }) => 
-    selected ? theme.colors.text.light : theme.colors.text.primary};
-  border: ${({ theme, selected }) => 
-    selected ? 'none' : `1px solid ${theme.colors.border}`};
+  background-color: ${({ theme, $selected }) => 
+    $selected ? theme.colors.primary : theme.colors.background.secondary};
+  color: ${({ theme, $selected }) => 
+    $selected ? theme.colors.text.light : theme.colors.text.primary};
+  border: ${({ theme, $selected }) => 
+    $selected ? 'none' : `1px solid ${theme.colors.border}`};
   border-radius: ${({ theme }) => theme.borderRadius.default};
   padding: ${({ theme }) => theme.spacing.md};
   font-size: ${({ theme }) => theme.fontSizes.body};
@@ -72,8 +72,8 @@ const OptionButton = styled.button`
   transition: all ${({ theme }) => theme.transitions.fast};
   
   &:hover {
-    background-color: ${({ theme, selected }) => 
-      selected ? theme.colors.primary : theme.colors.background.secondary + 'DD'};
+    background-color: ${({ theme, $selected }) => 
+      $selected ? theme.colors.primary : theme.colors.background.secondary + 'DD'};
     transform: translateY(-2px);
   }
   
@@ -221,6 +221,9 @@ const Poll = ({
   
   const totalVotes = pollResults.reduce((sum, item) => sum + item.votes, 0);
   
+  // Create a unique ID for this component instance to prevent chart ID conflicts
+  const chartInstanceId = useRef(`chart-${id}-${Math.random().toString(36).substring(2, 9)}`);
+  
   useEffect(() => {
     // If results change and we're not the presenter, mark as voted
     if (results && !isPresenter) {
@@ -228,22 +231,53 @@ const Poll = ({
     }
   }, [results, isPresenter]);
   
+  // Clean up chart instance when component unmounts or when chartType changes
+  useEffect(() => {
+    // Return cleanup function
+    return () => {
+      // Destroy any existing chart instance to prevent 'Canvas is already in use' error
+      if (chartRef.current && chartRef.current.chartInstance) {
+        chartRef.current.chartInstance.destroy();
+      }
+      
+      // Also check global ChartJS registry and clear any orphaned charts
+      if (ChartJS.instances) {
+        Object.keys(ChartJS.instances).forEach(key => {
+          if (key.startsWith(`chart-${id}`)) {
+            ChartJS.instances[key].destroy();
+          }
+        });
+      }
+    };
+  }, [id, chartType]);
+  
   const handleOptionSelect = (index) => {
     setSelectedOption(index);
   };
   
   const handleSubmit = () => {
     if (selectedOption !== null) {
+      console.log('[POLL DEBUG] Submitting vote:', {
+        pollId: id,
+        optionIndex: selectedOption,
+        question,
+        timestamp: new Date().toISOString()
+      });
+      
       setHasVoted(true);
       // Updated: Use onSubmit prop for participant vote submission
       if (onSubmit) {
+        console.log('[POLL DEBUG] Using onSubmit handler');
         onSubmit(selectedOption);
       } else if (onVote) {
         // Legacy fallback
+        console.log('[POLL DEBUG] Using onVote handler');
         onVote({
           pollId: id,
           optionIndex: selectedOption
         });
+      } else {
+        console.error('[POLL DEBUG] No submission handler provided (onSubmit or onVote)');
       }
       // Create local results before server response
       const newResults = [...pollResults];
@@ -337,22 +371,34 @@ const Poll = ({
       y: {
         beginAtZero: true,
         ticks: {
-          precision: 0
-        }
-      },
-      x: {
-        ticks: {
-          autoSkip: true,
-          maxRotation: chartType === 'horizontalBar' ? 0 : 45,
-          minRotation: 0
+          precision: 0 // Only show whole numbers
         }
       }
     } : undefined,
+    // We want horizontalBar to use y-axis, others use x-axis
     indexAxis: chartType === 'horizontalBar' ? 'y' : 'x',
     plugins: {
       legend: {
-        display: chartType === 'pie' || chartType === 'doughnut',
-        position: 'bottom'
+        // Only show legend when we have data AND we're using a chart type that needs a legend
+        display: (chartType === 'pie' || chartType === 'doughnut') && 
+                 totalVotes > 0 && 
+                 chartData.labels && 
+                 chartData.labels.length > 0 &&
+                 chartData.datasets[0].data && 
+                 chartData.datasets[0].data.some(val => val > 0),
+        position: 'bottom',
+        // Prevent legend hitbox adjustment if no legend items
+        labels: {
+          generateLabels: (chart) => {
+            // If there's no data, return an empty array to prevent hitbox errors
+            if (!chart.data.labels || chart.data.labels.length === 0 || !chart.data.datasets[0].data) {
+              return [];
+            }
+            
+            // Default legend label generation
+            return ChartJS.defaults.plugins.legend.labels.generateLabels(chart);
+          }
+        }
       },
       tooltip: {
         callbacks: {
@@ -375,18 +421,29 @@ const Poll = ({
   
   // Render the appropriate chart based on chartType
   const renderChart = () => {
+    if (!chartData.datasets[0].data || chartData.datasets[0].data.length === 0 || totalVotes === 0) {
+      return (
+        <ChartContainer style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <span>No responses yet</span>
+        </ChartContainer>
+      );
+    }
+    
+    // Add a unique key to force remount and prevent canvas reuse errors
+    const chartKey = `${chartInstanceId.current}-${chartType}`;
+    
     switch(chartType) {
       case 'pie':
-        return <Pie ref={chartRef} data={chartData} options={chartOptions} />;
+        return <Pie key={chartKey} ref={chartRef} data={chartData} options={chartOptions} />;
       case 'doughnut':
-        return <Doughnut ref={chartRef} data={chartData} options={chartOptions} />;
+        return <Doughnut key={chartKey} ref={chartRef} data={chartData} options={chartOptions} />;
       case 'horizontalBar':
-        return <Bar ref={chartRef} data={chartData} options={chartOptions} />;
+        return <Bar key={chartKey} ref={chartRef} data={chartData} options={chartOptions} />;
       case 'line':
-        return <Line ref={chartRef} data={chartData} options={chartOptions} />;
+        return <Line key={chartKey} ref={chartRef} data={chartData} options={chartOptions} />;
       case 'bar':
       default:
-        return <Bar ref={chartRef} data={chartData} options={chartOptions} />;
+        return <Bar key={chartKey} ref={chartRef} data={chartData} options={chartOptions} />;
     }
   };
   
@@ -400,7 +457,7 @@ const Poll = ({
             {options.map((option, index) => (
               <OptionButton
                 key={index}
-                selected={selectedOption === index}
+                $selected={selectedOption === index}
                 onClick={() => handleOptionSelect(index)}
               >
                 {option}
@@ -411,6 +468,7 @@ const Poll = ({
           <SubmitButton 
             onClick={handleSubmit} 
             disabled={selectedOption === null}
+            $primary
           >
             Submit Vote
           </SubmitButton>

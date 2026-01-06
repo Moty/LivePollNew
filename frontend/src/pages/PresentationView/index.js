@@ -325,8 +325,9 @@ const PresentationView = () => {
   const [presentation, setPresentation] = useState(null);
   const [activities, setActivities] = useState([]);
   const [activeActivity, setActiveActivity] = useState(null);
+  // Session ID for current presentation run
+  const [sessionId, setSessionId] = useState(null);
   const [sessionCode, setSessionCode] = useState('');
-  const [sessionId, setSessionId] = useState('');
   const [participantCount, setParticipantCount] = useState(0);
   const [responseCount, setResponseCount] = useState(0);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
@@ -1213,6 +1214,72 @@ const PresentationView = () => {
     }
   };
   
+  // ---------------------------------------------
+  // Effect: Fetch session-specific poll results when switching activities
+  useEffect(() => {
+    if (!sessionReady || !sessionId || !activeActivity || activeActivity.type !== 'poll') {
+      console.log('[PRESENTATION DEBUG] Skipping poll results fetch:', {
+        sessionReady, 
+        sessionId, 
+        activityType: activeActivity?.type, 
+        activityId: activeActivity?._id
+      });
+      return;
+    }
+
+    console.log('[PRESENTATION DEBUG] Fetching poll results for activity switch:', {
+      sessionId,
+      activityId: activeActivity._id,
+      activityType: activeActivity.type,
+      timestamp: new Date().toISOString()
+    });
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await apiService.getSessionResults(sessionId, activeActivity._id);
+        console.log('[PRESENTATION DEBUG] Received poll results:', {
+          activityId: activeActivity._id,
+          dataReceived: data,
+          dataLength: Array.isArray(data) ? data.length : 'Not an array'
+        });
+        
+        if (!cancelled && Array.isArray(data)) {
+          const optionIndices = [];
+          data.forEach(({ optionIndex, votes }) => {
+            console.log(`[PRESENTATION DEBUG] Processing option ${optionIndex} with ${votes} votes`);
+            for (let i = 0; i < votes; i++) {
+              optionIndices.push(optionIndex);
+            }
+          });
+          
+          console.log('[PRESENTATION DEBUG] Setting activity responses:', {
+            activityId: activeActivity._id,
+            optionIndices
+          });
+          
+          setActiveActivity(prev => {
+            const updated = {
+              ...prev,
+              responses: optionIndices,
+            };
+            console.log('[PRESENTATION DEBUG] Updated activity:', updated);
+            return updated;
+          });
+        } else if (!Array.isArray(data)) {
+          console.error('[PRESENTATION DEBUG] Poll results data is not an array:', data);
+        }
+      } catch (err) {
+        console.error('[PRESENTATION DEBUG] Failed to load session poll results', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, sessionId, activeActivity?._id]);
+
+  // ---------------------------------------------
   // Render the active activity results
   const renderActivityResults = () => {
     if (!activeActivity) return null;

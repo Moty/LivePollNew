@@ -1,5 +1,6 @@
 const express = require('express');
 const Poll = require('../models/poll');
+const sessionService = require('../services/sessionService');
 const router = express.Router();
 
 /**
@@ -91,8 +92,11 @@ router.post('/', async (req, res) => {
 router.post('/:id/responses', async (req, res) => {
   try {
     const pollId = req.params.id;
-    const { optionId, rating, openResponse, userId } = req.body;
+    const { optionId, rating, openResponse, userId, sessionId } = req.body;
     
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
@@ -113,6 +117,10 @@ router.post('/:id/responses', async (req, res) => {
     }
     
     // Add response
+    // Store response in Firestore session responses collection
+    await sessionService.addPollResponse(sessionId, pollId, optionId, userId);
+
+    // Legacy/additional storage if required by relational model
     const response = await Poll.addResponse({
       pollId,
       optionId: optionId || null,

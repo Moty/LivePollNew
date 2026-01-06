@@ -17,6 +17,7 @@ const qaRoutes = require('./routes/qa');
 const surveyRoutes = require('./routes/surveys');
 const analyticsRoutes = require('./routes/analytics');
 const exportRoutes = require('./routes/exports');
+const sessionRoutes = require('./routes/sessions');
 const presentationRoutes = require('./routes/presentations');
 
 // Load environment variables
@@ -79,6 +80,7 @@ app.use('/api/surveys', surveyRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/presentations', presentationRoutes);
+app.use('/api', sessionRoutes);
 
 // Socket.IO event handlers
 require('./services/socketService')(io);

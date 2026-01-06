@@ -208,7 +208,9 @@ const ActionButton = styled.button`
       ? theme.colors.primary 
       : $variant === 'danger'
         ? theme.colors.error
-        : 'transparent'
+        : $variant === 'secondary'
+          ? theme.colors.background.secondary
+          : 'transparent'
   };
   color: ${({ theme, $variant }) => 
     $variant === 'primary' || $variant === 'danger'
@@ -218,7 +220,9 @@ const ActionButton = styled.button`
   border: ${({ theme, $variant }) => 
     $variant === 'primary' || $variant === 'danger'
       ? 'none'
-      : `1px solid ${theme.colors.border.light}`
+      : $variant === 'secondary'
+        ? `1px solid ${theme.colors.primary}33`
+        : `1px solid ${theme.colors.border.light}`
   };
   border-radius: ${({ theme }) => theme.borderRadius.default};
   padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.sm}`};
@@ -233,7 +237,9 @@ const ActionButton = styled.button`
         ? theme.colors.primary + 'DD' 
         : $variant === 'danger'
           ? theme.colors.error + 'DD'
-          : theme.colors.background.secondary
+          : $variant === 'secondary'
+            ? theme.colors.primary + '15'
+            : theme.colors.background.secondary
     };
   }
   
@@ -319,10 +325,11 @@ const RetryButton = styled.button`
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useAuth();
-  const { success, error: showError } = useNotification();
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
   
   const [presentations, setPresentations] = useState([]);
+  const [presentationSessions, setPresentationSessions] = useState({}); // Store sessions per presentation
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -351,6 +358,9 @@ const Dashboard = () => {
         
         console.log('Processed presentations:', validPresentations);
         setPresentations(validPresentations);
+        
+        // Fetch sessions for each presentation
+        await fetchPresentationSessions(validPresentations);
       } else {
         console.warn('Invalid or empty response format:', response);
         setPresentations([]);
@@ -361,6 +371,60 @@ const Dashboard = () => {
       setPresentations([]);
     } finally {
       setLoading(false);
+    }
+  }, []);
+  
+  // Fetch sessions for each presentation
+  const fetchPresentationSessions = useCallback(async (presentationsArray) => {
+    try {
+      const sessionsMap = {};
+      
+      // Fetch sessions for each presentation
+      await Promise.allSettled(
+        presentationsArray.map(async (presentation) => {
+          try {
+            console.log(`Fetching sessions for presentation ${presentation.id}`);
+            const response = await apiService.listSessions(presentation.id);
+            
+            if (response && response.data) {
+              const sessions = Array.isArray(response.data) ? response.data : [];
+              console.log(`Found ${sessions.length} sessions for presentation ${presentation.id}`);
+              
+              // Calculate summary stats for each session
+              const sessionsWithStats = await Promise.allSettled(
+                sessions.map(async (session) => {
+                  try {
+                    // For now, we'll just store session info
+                    // Later we can fetch detailed results if needed
+                    return {
+                      ...session,
+                      totalResponses: session.totalResponses || 0,
+                      lastActive: session.lastActive || session.createdAt
+                    };
+                  } catch (err) {
+                    console.warn(`Error fetching stats for session ${session.id}:`, err);
+                    return session;
+                  }
+                })
+              );
+              
+              sessionsMap[presentation.id] = sessionsWithStats
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value);
+            } else {
+              sessionsMap[presentation.id] = [];
+            }
+          } catch (err) {
+            console.warn(`Error fetching sessions for presentation ${presentation.id}:`, err);
+            sessionsMap[presentation.id] = [];
+          }
+        })
+      );
+      
+      console.log('Fetched sessions map:', sessionsMap);
+      setPresentationSessions(sessionsMap);
+    } catch (err) {
+      console.error('Error fetching presentation sessions:', err);
     }
   }, []);
   
@@ -385,6 +449,24 @@ const Dashboard = () => {
   
   const handlePresentPresentation = (id) => {
     navigate(`/present/${id}`);
+  };
+  
+  const handleViewResults = (presentationId) => {
+    // For now, we'll navigate to a simple results view
+    // Later this can be enhanced with a dedicated results page
+    const sessions = presentationSessions[presentationId] || [];
+    if (sessions.length === 0) {
+      showNotification('No session results found for this presentation.', 'info');
+      return;
+    }
+    
+    // For demo purposes, show session info in alert
+    // In production, this would navigate to a results page
+    const sessionSummary = sessions.map(session => 
+      `Session ${session.code || session.id}: ${session.totalResponses || 0} responses`
+    ).join('\n');
+    
+    alert(`Results for Presentation:\n${sessionSummary}\n\nResults viewing page coming soon!`);
   };
   
   const handleDeletePresentation = async (id) => {
@@ -563,6 +645,20 @@ const Dashboard = () => {
                       : 'Recently created'}
                   </span>
                   <span>{presentation.activities?.length || 0} activities</span>
+                  {(() => {
+                    const sessions = presentationSessions[presentation.id] || [];
+                    const totalSessions = sessions.length;
+                    const totalResponses = sessions.reduce((sum, session) => sum + (session.totalResponses || 0), 0);
+                    
+                    if (totalSessions > 0) {
+                      return (
+                        <span style={{ color: '#22c55e', fontWeight: '600' }}>
+                          📊 {totalSessions} session{totalSessions > 1 ? 's' : ''} • {totalResponses} response{totalResponses !== 1 ? 's' : ''}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </PresentationMeta>
                 <PresentationActions>
                   <ActionButton $variant="primary" onClick={() => handlePresentPresentation(presentation.id)}>
@@ -571,6 +667,21 @@ const Dashboard = () => {
                     </svg>
                     Present
                   </ActionButton>
+                  {(() => {
+                    const sessions = presentationSessions[presentation.id] || [];
+                    if (sessions.length > 0) {
+                      return (
+                        <ActionButton $variant="secondary" onClick={() => handleViewResults(presentation.id)}>
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 3V21H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M9 9L12 6L16 10L20 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Results
+                        </ActionButton>
+                      );
+                    }
+                    return null;
+                  })()}
                   <ActionButton onClick={() => handleEditPresentation(presentation.id)}>
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
