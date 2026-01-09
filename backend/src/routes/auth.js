@@ -9,10 +9,10 @@ const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const { generateToken } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { db } = require('../config/firebase');
 
-// In-memory user store (replace with database in production)
-// This is a temporary solution - should be replaced with Firebase Auth or database
-const users = new Map();
+// Users collection in Firestore
+const getUsersCollection = () => db.collection('users');
 
 // Validation middleware
 const validateLogin = [
@@ -45,7 +45,10 @@ router.post('/register', validateRegister, async (req, res) => {
     const { name, email, password } = req.body;
 
     // Check if user already exists
-    if (users.has(email)) {
+    const usersCollection = getUsersCollection();
+    const existingUser = await usersCollection.where('email', '==', email.toLowerCase()).limit(1).get();
+    
+    if (!existingUser.empty) {
       return res.status(409).json({
         error: 'User already exists',
         message: 'An account with this email already exists'
@@ -61,13 +64,15 @@ router.post('/register', validateRegister, async (req, res) => {
     const user = {
       id: userId,
       name,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       role: 'user',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    users.set(email, user);
+    // Store user in Firestore
+    await usersCollection.doc(userId).set(user);
     logger.info(`New user registered: ${email}`);
 
     // Generate token
@@ -109,15 +114,20 @@ router.post('/login', validateLogin, async (req, res) => {
 
     const { email, password } = req.body;
 
-    // Find user
-    const user = users.get(email);
-    if (!user) {
+    // Find user in Firestore
+    const usersCollection = getUsersCollection();
+    const userSnapshot = await usersCollection.where('email', '==', email.toLowerCase()).limit(1).get();
+    
+    if (userSnapshot.empty) {
       // Use same message to prevent user enumeration
       return res.status(401).json({
         error: 'Authentication failed',
         message: 'Invalid email or password'
       });
     }
+
+    const userDoc = userSnapshot.docs[0];
+    const user = userDoc.data();
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -127,6 +137,12 @@ router.post('/login', validateLogin, async (req, res) => {
         message: 'Invalid email or password'
       });
     }
+
+    // Update last login time
+    await userDoc.ref.update({
+      lastLoginAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     // Generate token
     const token = generateToken(user);

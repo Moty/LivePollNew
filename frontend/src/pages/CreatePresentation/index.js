@@ -239,40 +239,8 @@ const CreatePresentation = () => {
     }
   };
 
-  // Header component
-  const Header = () => (
-    <AppBar position="sticky" color="primary" sx={{ zIndex: 1201 }}>
-      <Toolbar>
-        <IconButton color="inherit" edge="start" onClick={handleCancel} sx={{ mr: 2 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        {isMobile && (
-          <IconButton color="inherit" onClick={() => setSidebarOpen(true)}>
-            <MenuIcon />
-          </IconButton>
-        )}
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Create Presentation
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" color="inherit" onClick={handleCancel} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !formValues.title?.trim() || activities.length === 0}
-          >
-            {isSubmitting ? 'Creating...' : 'Create'}
-          </Button>
-        </Box>
-      </Toolbar>
-    </AppBar>
-  );
-
-  // Sidebar activity list component
-  const SidebarContent = () => (
+  // Sidebar activity list component - memoized to prevent losing focus
+  const sidebarContent = React.useMemo(() => (
     <Box sx={{ p: 2, width: isMobile ? 280 : 270 }}>
       {/* Presentation Info */}
       <Typography variant="h6" sx={{ mb: 2 }}>Presentation Info</Typography>
@@ -387,6 +355,38 @@ const CreatePresentation = () => {
         </List>
       )}
     </Box>
+  ), [formValues, handleInputChange, activities, selectedActivityId, reorderMode, handleAddActivity, handleSelectActivity, moveActivity, handleDuplicateActivity, handleDeleteActivity, isMobile]);
+
+  // Header component
+  const Header = () => (
+    <AppBar position="sticky" color="primary" sx={{ zIndex: 1201 }}>
+      <Toolbar>
+        <IconButton color="inherit" edge="start" onClick={handleCancel} sx={{ mr: 2 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        {isMobile && (
+          <IconButton color="inherit" onClick={() => setSidebarOpen(true)}>
+            <MenuIcon />
+          </IconButton>
+        )}
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Create Presentation
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button variant="outlined" color="inherit" onClick={handleCancel} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleSubmit}
+            disabled={isSubmitting || !formValues.title?.trim() || activities.length === 0}
+          >
+            {isSubmitting ? 'Creating...' : 'Create'}
+          </Button>
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 
   return (
@@ -415,11 +415,11 @@ const CreatePresentation = () => {
               ModalProps={{ keepMounted: true }}
               sx={{ zIndex: 1300 }}
             >
-              <SidebarContent />
+              {sidebarContent}
             </Drawer>
           ) : (
             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-              <SidebarContent />
+              {sidebarContent}
             </Box>
           )}
         </Grid>

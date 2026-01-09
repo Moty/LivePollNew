@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { io } from 'socket.io-client';
 
 // Activity components
@@ -373,7 +373,7 @@ const Toast = styled.div`
   svg {
     width: 20px;
     height: 20px;
-    ${({ type }) => type === 'success' && `animation: ${checkmark} 0.3s ease-out;`}
+    ${({ type }) => type === 'success' && css`animation: ${checkmark} 0.3s ease-out;`}
   }
 `;
 
@@ -772,7 +772,45 @@ const ParticipantView = () => {
 
     const activity = activeActivity.activity || activeActivity;
 
-    if (!activity || !activity.type) {
+    // Normalize legacy payloads where fields live under config
+    const activityId = activity?._id || activity?.activityId || activity?.id;
+    const normalizedActivity = {
+      ...activity,
+      _id: activityId,
+      options: activity?.options || activity?.config?.options || [],
+      question: activity?.question || activity?.config?.question || activity?.title,
+      questions: (() => {
+        // If questions array already exists, use it
+        if (activity?.questions?.length > 0) return activity.questions;
+        if (activity?.config?.questions?.length > 0) return activity.config.questions;
+        
+        // For quiz activities: convert single question format to questions array
+        const activityType = (activity?.type || activity?.activityType || '').toLowerCase();
+        if (activityType === 'quiz') {
+          const question = activity?.question || activity?.config?.question;
+          const options = activity?.options || activity?.config?.options;
+          const correctIndex = activity?.correctIndex ?? activity?.config?.correctIndex;
+          
+          // If we have a question and options, create a questions array
+          if (question && options?.length > 0) {
+            return [{
+              text: question,
+              options: options,
+              correctAnswer: correctIndex ?? 0  // Note: Quiz component uses correctAnswer, not correctIndex
+            }];
+          }
+        }
+        
+        return [];
+      })(),
+      type: activity?.type || activity?.activityType
+    };
+
+    const activityType = (normalizedActivity.type || '').toLowerCase();
+    // If we still don't have a type, infer poll when options exist
+    const resolvedType = activityType || (Array.isArray(normalizedActivity.options) ? 'poll' : '');
+
+    if (!activity || !resolvedType) {
       return (
         <WaitingScreen>
           <h2>Loading activity...</h2>
@@ -780,42 +818,42 @@ const ParticipantView = () => {
       );
     }
 
-    const hasSubmitted = submittedActivities.has(activity._id);
+    const hasSubmitted = submittedActivities.has(activityId || activity._id);
 
-    switch (activity.type.toLowerCase()) {
+    switch (resolvedType) {
       case 'poll':
         return (
           <Poll
-            {...activity}
+            {...normalizedActivity}
             isPresenter={false}
             hasSubmitted={hasSubmitted}
-            onSubmit={(optionIndex) => handlePollSubmit(activity._id, optionIndex)}
+            onSubmit={(optionIndex) => handlePollSubmit(activityId || activity._id, optionIndex)}
           />
         );
       case 'quiz':
         return (
           <Quiz
-            {...activity}
+            {...normalizedActivity}
             isPresenter={false}
             hasSubmitted={hasSubmitted}
-            onSubmit={(answers) => handleQuizSubmit(activity._id, answers)}
+            onSubmit={(answers) => handleQuizSubmit(activityId || activity._id, answers)}
           />
         );
       case 'wordcloud':
         return (
           <WordCloud
-            {...activity}
+            {...normalizedActivity}
             isPresenter={false}
-            onSubmit={(id, word) => handleWordCloudSubmit(id, word)}
+            onSubmit={(id, word) => handleWordCloudSubmit(id || activityId || activity._id, word)}
           />
         );
       case 'qa':
         return (
           <QA
-            {...activity}
+            {...normalizedActivity}
             isPresenter={false}
-            onSubmit={(question) => handleQASubmit(activity._id, question)}
-            onUpvote={(questionId) => handleQAUpvote(activity._id, questionId)}
+            onSubmit={(question) => handleQASubmit(activityId || activity._id, question)}
+            onUpvote={(questionId) => handleQAUpvote(activityId || activity._id, questionId)}
           />
         );
       default:
